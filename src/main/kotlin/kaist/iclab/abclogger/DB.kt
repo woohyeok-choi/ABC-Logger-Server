@@ -2,15 +2,11 @@ package kaist.iclab.abclogger
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import kotlinx.coroutines.*
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.Transaction
-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
-import java.util.concurrent.TimeUnit
 
 class DB (private val tables: Array<BaseTable>,
           serverName: String,

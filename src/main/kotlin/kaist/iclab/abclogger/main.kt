@@ -14,5 +14,6 @@ fun main() {
     val dbName = System.getenv(KEY_POSTGRE_DB_NAME) ?: "postgres"
 
     val app = App(portNumber, logPath, serverName, dbPortNumber, dbName)
+
     app.start()
 }

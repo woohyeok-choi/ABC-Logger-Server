@@ -2,6 +2,7 @@ package kaist.iclab.abclogger
 
 import io.grpc.Server
 import io.grpc.ServerBuilder
+import java.util.concurrent.TimeUnit
 
 class App(private val portNumber: Int,
           logPath: String,
@@ -31,17 +32,39 @@ class App(private val portNumber: Int,
             Wifis
     )
 
-    private val db = DB(allTables, serverName, dbPortNumber, dbName)
-    private val dbReader = DBReader(db.readOnlyDb)
-    private val dbWriter = DBWriter(db.writeOnlyDb, allTables)
-    private val dataOperation = DataOperationService(dbReader, dbWriter)
+    private val db: DB
+    private val dbReader: DBReader
+    private val dbWriter: DBWriter
+    private val dataOperation: DataOperationService
 
-    private val server: Server = ServerBuilder.forPort(portNumber)
-            .addService(dataOperation)
-            .build()
+    private val server: Server
 
     init {
         Log.bind(logPath)
+
+        var isBounded = false
+
+        db = DB(allTables, serverName, dbPortNumber, dbName)
+
+        for (i in 0 until 10) {
+            Thread.sleep(TimeUnit.SECONDS.toMillis(10))
+            try {
+                db.bind()
+                isBounded = true
+            } catch (e: Exception) { }
+        }
+
+        if (!isBounded) throw RuntimeException(
+                "No found DB connections for server: $serverName; port: $dbPortNumber; dbName: $dbName"
+        )
+
+        dbReader = DBReader(db.readOnlyDb)
+        dbWriter = DBWriter(db.writeOnlyDb, allTables)
+        dataOperation = DataOperationService(dbReader, dbWriter)
+
+        server = ServerBuilder.forPort(portNumber)
+                .addService(dataOperation)
+                .build()
     }
 
     fun start() {
