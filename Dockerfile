@@ -8,12 +8,7 @@ ENV POSTGRES_SERVER_NAME localhost
 ENV POSTGRES_PORT_NUMBER 5432
 ENV POSTGRES_DB_NAME $POSTGRES_USER
 
-RUN adduser -D -g '' $POSTGRES_USER
-
 RUN mkdir /home/app
-RUN chown -R $POSTGRES_USER /home/app
-
-USER $POSTGRES_USER
 
 COPY ./jars/abc-logger-server-0.9.2-all.jar /home/app/abc-logger-server-0.9.2-all.jar
 WORKDIR /home/app
