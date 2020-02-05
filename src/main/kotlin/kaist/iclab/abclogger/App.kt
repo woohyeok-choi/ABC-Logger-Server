@@ -6,9 +6,11 @@ import java.util.concurrent.TimeUnit
 
 class App(private val portNumber: Int,
           logPath: String,
-          serverName: String,
+          dbServerName: String,
           dbPortNumber: Int,
-          dbName: String) {
+          dbName: String,
+          dbUserName: String,
+          dbPassword: String) {
 
     private val allTables = arrayOf(
             PhysicalActivityTransitions,
@@ -44,7 +46,12 @@ class App(private val portNumber: Int,
 
         var isBounded = false
 
-        db = DB(allTables, serverName, dbPortNumber, dbName)
+        db = DB(tables = allTables,
+                serverName = dbServerName,
+                portNumber = dbPortNumber,
+                dbName = dbName,
+                userName = dbUserName,
+                password = dbPassword)
 
         for (i in 0 until 10) {
             Thread.sleep(TimeUnit.SECONDS.toMillis(10))
@@ -55,7 +62,7 @@ class App(private val portNumber: Int,
         }
 
         if (!isBounded) throw RuntimeException(
-                "No found DB connections for server: $serverName; port: $dbPortNumber; dbName: $dbName"
+                "No found DB connections for server: $dbServerName; port: $dbPortNumber; dbName: $dbName"
         )
 
         dbReader = DBReader(db.readOnlyDb)
