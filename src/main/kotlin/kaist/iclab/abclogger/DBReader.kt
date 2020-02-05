@@ -7,36 +7,82 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.BatchInsertStatement
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 
-class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.Type) -> BaseTable?) {
-    suspend fun readSubjects(dataType: DatumProto.Datum.Type,
-                             fromTime: Long,
-                             toTime: Long,
-                             limit: Int,
-                             isDescending: Boolean): List<String> {
-        val table = mapper(dataType)
-                ?: throw Status.INVALID_ARGUMENT.withDescription("a field, 'dataType' is invalid: ${dataType.name}").asRuntimeException()
+class DBReader(private val db: Database) {
+    private fun associateIntoTable(type: DatumProto.Datum.Type?) = when (type) {
+        DatumProto.Datum.Type.PHYSICAL_ACTIVITY_TRANSITION -> PhysicalActivityTransitions
+        DatumProto.Datum.Type.PHYSICAL_ACTIVITY -> PhysicalActivities
+        DatumProto.Datum.Type.APP_USAGE_EVENT -> AppUsageEvents
+        DatumProto.Datum.Type.BATTERY -> Batteries
+        DatumProto.Datum.Type.BLUETOOTH -> Bluetoothes
+        DatumProto.Datum.Type.CALL_LOG -> CallLogs
+        DatumProto.Datum.Type.DEVICE_EVENT -> DeviceEvents
+        DatumProto.Datum.Type.EXTERNAL_SENSOR -> ExternalSensors
+        DatumProto.Datum.Type.INSTALLED_APP -> InstalledApps
+        DatumProto.Datum.Type.KEY_LOG -> KeyLogs
+        DatumProto.Datum.Type.LOCATION -> Locations
+        DatumProto.Datum.Type.MEDIA -> Medias
+        DatumProto.Datum.Type.MESSAGE -> Messages
+        DatumProto.Datum.Type.NOTIFICATION -> Notifications
+        DatumProto.Datum.Type.PHYSICAL_STAT -> PhysicalStats
+        DatumProto.Datum.Type.INTERNAL_SENSOR -> InternalSensors
+        DatumProto.Datum.Type.SURVEY -> Surveys
+        DatumProto.Datum.Type.DATA_TRAFFIC -> DataTraffics
+        DatumProto.Datum.Type.WIFI -> Wifis
+        else -> null
+    }
+
+    suspend fun readSubjects(dataType: DatumProto.Datum.Type?,
+                             fromTime: Long?,
+                             toTime: Long?,
+                             limit: Int?,
+                             isDescending: Boolean?): List<DatumProto.Datum.Subject> {
+        val table = associateIntoTable(dataType)
+                ?: throw Status.INVALID_ARGUMENT.withDescription("Invalid value of a field, 'dataType'.").asRuntimeException()
 
         return newSuspendedTransaction(context = Dispatchers.IO, db = db) {
-            table.slice(table.subjectEmail)
-                    .select { (table.timestamp greaterEq fromTime) and (table.timestamp less toTime) }
-                    .limit(limit)
-                    .orderBy(table.timestamp, if (isDescending) SortOrder.DESC else SortOrder.ASC)
-                    .withDistinct()
-                    .map { row -> row[table.subjectEmail] }
+            table.slice(table.subjectEmail, table.timestamp)
+                    .select { (table.timestamp greaterEq (fromTime ?: 0)) and (table.timestamp less (toTime ?: Long.MAX_VALUE)) }
+                    .apply { if (limit != null && limit > 0) limit(limit) }.withDistinct()
+                    .orderBy(table.timestamp, if (isDescending == true) SortOrder.DESC else SortOrder.ASC)
+                    .mapNotNull { row ->
+                        val email = row[table.subjectEmail]
+                        return@mapNotNull if (email.isBlank()) {
+                            null
+                        } else {
+                            DatumProto.Datum.Subject.newBuilder().apply {
+                                subjectEmail = row[table.subjectEmail]
+                            }.build()
+                        }
+                    }
         }
     }
 
-    suspend fun readData(dataType: DatumProto.Datum.Type,
-                         subjectEmail: String,
-                         fromTime: Long,
-                         toTime: Long,
-                         limit: Int,
-                         isDescending: Boolean) {
+    suspend fun readData(dataType: DatumProto.Datum.Type?,
+                         subjectEmail: String?,
+                         fromTime: Long?,
+                         toTime: Long?,
+                         limit: Int?,
+                         isDescending: Boolean?) : List<DatumProto.Datum> {
+        val table = associateIntoTable(dataType)
+                ?: throw Status.INVALID_ARGUMENT.withDescription("Invalid value of a field, 'dataType'.").asRuntimeException()
+
+        return newSuspendedTransaction {
+            val query = table.select {
+                (table.timestamp greaterEq (fromTime ?: 0)) and (table.timestamp less (toTime ?: Long.MAX_VALUE))
+            }
+
+            if (!subjectEmail.isNullOrBlank()) query.andWhere { table.subjectEmail eq subjectEmail }
+
+            query.apply {
+                if (limit != null && limit > 0) limit(limit)
+            }.orderBy(table.timestamp, if (isDescending == true) SortOrder.DESC else SortOrder.ASC)
+                    .mapNotNull { row -> dataMapper(table, row) }
+        }
     }
 
-    private fun dataMapper(tableName: String, row: ResultRow): DatumProto.Datum? =
-            when (tableName) {
-                PhysicalActivityTransitions.tableName -> {
+    private fun dataMapper(table: BaseTable, row: ResultRow): DatumProto.Datum? =
+            when (table) {
+                is PhysicalActivityTransitions -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[PhysicalActivityTransitions.timestamp]
                         utcOffset = row[PhysicalActivityTransitions.utcOffset]
@@ -49,7 +95,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                PhysicalActivities.tableName -> {
+                is PhysicalActivities -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[PhysicalActivities.timestamp]
                         utcOffset = row[PhysicalActivities.utcOffset]
@@ -62,7 +108,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                AppUsageEvents.tableName -> {
+                is AppUsageEvents -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[AppUsageEvents.timestamp]
                         utcOffset = row[AppUsageEvents.utcOffset]
@@ -78,7 +124,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                Batteries.tableName -> {
+                is Batteries -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[Batteries.timestamp]
                         utcOffset = row[Batteries.utcOffset]
@@ -96,7 +142,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                Bluetoothes.tableName -> {
+                is Bluetoothes -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[Bluetoothes.timestamp]
                         utcOffset = row[Bluetoothes.utcOffset]
@@ -110,7 +156,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                CallLogs.tableName -> {
+                is CallLogs -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[CallLogs.timestamp]
                         utcOffset = row[CallLogs.utcOffset]
@@ -129,7 +175,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                DeviceEvents.tableName -> {
+                is DeviceEvents -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[DeviceEvents.timestamp]
                         utcOffset = row[DeviceEvents.utcOffset]
@@ -141,7 +187,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                ExternalSensors.tableName -> {
+                is ExternalSensors -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[ExternalSensors.timestamp]
                         utcOffset = row[ExternalSensors.utcOffset]
@@ -159,7 +205,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                InstalledApps.tableName -> {
+                is InstalledApps -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[InstalledApps.timestamp]
                         utcOffset = row[InstalledApps.utcOffset]
@@ -176,7 +222,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                InternalSensors.tableName -> {
+                is InternalSensors -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[InternalSensors.timestamp]
                         utcOffset = row[InternalSensors.utcOffset]
@@ -193,7 +239,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                KeyLogs.tableName -> {
+                is KeyLogs -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[KeyLogs.timestamp]
                         utcOffset = row[KeyLogs.utcOffset]
@@ -215,7 +261,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                Locations.tableName -> {
+                is Locations -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[Locations.timestamp]
                         utcOffset = row[Locations.utcOffset]
@@ -231,7 +277,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                Medias.tableName -> {
+                is Medias -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[Medias.timestamp]
                         utcOffset = row[Medias.utcOffset]
@@ -243,7 +289,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                Messages.tableName -> {
+                is Messages -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[Messages.timestamp]
                         utcOffset = row[Messages.utcOffset]
@@ -260,7 +306,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                Notifications.tableName -> {
+                is Notifications -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[Notifications.timestamp]
                         utcOffset = row[Notifications.utcOffset]
@@ -282,7 +328,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                PhysicalStats.tableName -> {
+                is PhysicalStats -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[PhysicalStats.timestamp]
                         utcOffset = row[PhysicalStats.utcOffset]
@@ -297,7 +343,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                Surveys.tableName -> {
+                is Surveys -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[Surveys.timestamp]
                         utcOffset = row[Surveys.utcOffset]
@@ -316,7 +362,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                DataTraffics.tableName -> {
+                is DataTraffics -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[DataTraffics.timestamp]
                         utcOffset = row[DataTraffics.utcOffset]
@@ -333,7 +379,7 @@ class DBReader(private val db: Database, private val mapper: (DatumProto.Datum.T
                         }.build()
                     }.build()
                 }
-                Wifis.tableName -> {
+                is Wifis -> {
                     DatumProto.Datum.newBuilder().apply {
                         timestamp = row[Wifis.timestamp]
                         utcOffset = row[Wifis.utcOffset]

@@ -1,20 +1,65 @@
 package kaist.iclab.abclogger
 
+import io.grpc.Status
 import io.reactivex.rxjava3.disposables.CompositeDisposable
+import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.subjects.PublishSubject
+import io.reactivex.rxjava3.subjects.Subject
 import kaist.iclab.abclogger.grpc.DatumProto
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.statements.BatchInsertStatement
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.util.concurrent.TimeUnit
 
-class DBWriter(private val database: Database, private val writeBuffer: WriteBuffer, private val tables: Array<BaseTable>) {
+class DBWriter(private val database: Database,
+               private val tables: Array<BaseTable>) {
+
     private val compositeDisposable = CompositeDisposable()
+
+    private val buffers : Map<BaseTable, Subject<DatumProto.Datum>> = tables.associate { table -> table to PublishSubject.create<DatumProto.Datum>() }
+
+    private fun associateToTable(proto: DatumProto.Datum): BaseTable? = when {
+        proto.hasPhysicalActivityTransition() -> PhysicalActivityTransitions
+        proto.hasPhysicalActivity() -> PhysicalActivities
+        proto.hasAppUsageEvent() -> AppUsageEvents
+        proto.hasBattery() -> Batteries
+        proto.hasBluetooth() -> Bluetoothes
+        proto.hasCallLog() -> CallLogs
+        proto.hasDeviceEvent() -> DeviceEvents
+        proto.hasExternalSensor() -> ExternalSensors
+        proto.hasInstalledApp() -> InstalledApps
+        proto.hasKeyLog() -> KeyLogs
+        proto.hasLocation() -> Locations
+        proto.hasMedia() -> Medias
+        proto.hasMessage() -> Messages
+        proto.hasNotification() -> Notifications
+        proto.hasPhysicalStat() -> PhysicalStats
+        proto.hasInternalSensor() -> InternalSensors
+        proto.hasSurvey() -> Surveys
+        proto.hasDataTraffic() -> DataTraffics
+        proto.hasWifi() -> Wifis
+        else -> null
+    }
+
+    private fun subscribe(table: BaseTable, subscriber: (List<DatumProto.Datum>) -> Unit) : Disposable? {
+        return buffers[table]?.buffer(10, TimeUnit.SECONDS)?.subscribe(subscriber)
+    }
+
+    fun write(datum: DatumProto.Datum) {
+        associateToTable(datum)?.let { table -> buffers[table]?.onNext(datum) }
+                ?: throw Status.INVALID_ARGUMENT.withDescription("Invalid value of a field, 'data'.").asRuntimeException()
+    }
 
     fun subscribe() {
         val disposables = tables.mapNotNull { table ->
-            writeBuffer.subscribe(table.tableName) { data ->
+            subscribe(table) { data ->
                 transaction(database) {
-                    table.batchInsert(data = data, body = batchInsertStatement(table.tableName))
+                    try {
+                        table.batchInsert(data = data, body = batchInsertStatement(table))
+                    } catch (e: Exception) {
+                        Log.error("Failed to batch insert for data: $data", e)
+                    }
                 }
             }
         }
@@ -25,10 +70,10 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
         compositeDisposable.clear()
     }
 
-    private fun batchInsertStatement(tableName: String) : BatchInsertStatement.(DatumProto.Datum) -> Unit = {
+    private fun batchInsertStatement(table: BaseTable) : BatchInsertStatement.(DatumProto.Datum) -> Unit = {
         val uploadTime = System.currentTimeMillis()
-        when (tableName) {
-            PhysicalActivityTransitions.tableName -> {
+        when (table) {
+            is PhysicalActivityTransitions -> {
                 this[PhysicalActivityTransitions.timestamp] = it.timestamp
                 this[PhysicalActivityTransitions.utcOffset] = it.utcOffset
                 this[PhysicalActivityTransitions.subjectEmail] = it.subjectEmail
@@ -37,7 +82,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[PhysicalActivityTransitions.type] = it.physicalActivityTransition.type
                 this[PhysicalActivityTransitions.isEntered] = it.physicalActivityTransition.isEntered
             }
-            PhysicalActivities.tableName -> {
+            is PhysicalActivities -> {
                 this[PhysicalActivities.timestamp] = it.timestamp
                 this[PhysicalActivities.utcOffset] = it.utcOffset
                 this[PhysicalActivities.subjectEmail] = it.subjectEmail
@@ -46,7 +91,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[PhysicalActivities.type] = it.physicalActivity.type
                 this[PhysicalActivities.confidence] = it.physicalActivity.confidence
             }
-            AppUsageEvents.tableName -> {
+            is AppUsageEvents -> {
                 this[AppUsageEvents.timestamp] = it.timestamp
                 this[AppUsageEvents.utcOffset] = it.utcOffset
                 this[AppUsageEvents.subjectEmail] = it.subjectEmail
@@ -58,7 +103,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[AppUsageEvents.isSystemApp] = it.appUsageEvent.isSystemApp
                 this[AppUsageEvents.isUpdatedSystemApp] = it.appUsageEvent.isUpdatedSystemApp
             }
-            Batteries.tableName -> {
+            is Batteries -> {
                 this[Batteries.timestamp] = it.timestamp
                 this[Batteries.utcOffset] = it.utcOffset
                 this[Batteries.subjectEmail] = it.subjectEmail
@@ -72,7 +117,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[Batteries.pluggedType] = it.battery.pluggedType
                 this[Batteries.status] = it.battery.status
             }
-            Bluetoothes.tableName -> {
+            is Bluetoothes -> {
                 this[Bluetoothes.timestamp] = it.timestamp
                 this[Bluetoothes.utcOffset] = it.utcOffset
                 this[Bluetoothes.subjectEmail] = it.subjectEmail
@@ -82,7 +127,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[Bluetoothes.address] = it.bluetooth.address
                 this[Bluetoothes.rssi] = it.bluetooth.rssi
             }
-            CallLogs.tableName -> {
+            is CallLogs -> {
                 this[CallLogs.timestamp] = it.timestamp
                 this[CallLogs.utcOffset] = it.utcOffset
                 this[CallLogs.subjectEmail] = it.subjectEmail
@@ -97,7 +142,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[CallLogs.isStarred] = it.callLog.isStarred
                 this[CallLogs.isPinned] = it.callLog.isPinned
             }
-            DeviceEvents.tableName -> {
+            is DeviceEvents -> {
                 this[DeviceEvents.timestamp] = it.timestamp
                 this[DeviceEvents.utcOffset] = it.utcOffset
                 this[DeviceEvents.subjectEmail] = it.subjectEmail
@@ -105,7 +150,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[DeviceEvents.uploadTime] = uploadTime
                 this[DeviceEvents.type] = it.deviceEvent.type
             }
-            ExternalSensors.tableName -> {
+            is ExternalSensors -> {
                 this[ExternalSensors.timestamp] = it.timestamp
                 this[ExternalSensors.utcOffset] = it.utcOffset
                 this[ExternalSensors.subjectEmail] = it.subjectEmail
@@ -119,7 +164,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[ExternalSensors.thirdValue] = it.externalSensor.thirdValue
                 this[ExternalSensors.fourthValue] = it.externalSensor.fourthValue
             }
-            InstalledApps.tableName -> {
+            is InstalledApps -> {
                 this[InstalledApps.timestamp] = it.timestamp
                 this[InstalledApps.utcOffset] = it.utcOffset
                 this[InstalledApps.subjectEmail] = it.subjectEmail
@@ -132,7 +177,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[InstalledApps.firstInstallTime] = it.installedApp.firstInstallTime
                 this[InstalledApps.lastUpdateTime] = it.installedApp.lastUpdateTime
             }
-            InternalSensors.tableName -> {
+            is InternalSensors -> {
                 this[InternalSensors.timestamp] = it.timestamp
                 this[InternalSensors.utcOffset] = it.utcOffset
                 this[InternalSensors.subjectEmail] = it.subjectEmail
@@ -145,7 +190,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[InternalSensors.thirdValue] = it.internalSensor.thirdValue
                 this[InternalSensors.fourthValue] = it.internalSensor.fourthValue
             }
-            KeyLogs.tableName -> {
+            is KeyLogs -> {
                 this[KeyLogs.timestamp] = it.timestamp
                 this[KeyLogs.utcOffset] = it.utcOffset
                 this[KeyLogs.subjectEmail] = it.subjectEmail
@@ -163,7 +208,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[KeyLogs.prevKeyType] = it.keyLog.prevKeyType
                 this[KeyLogs.currentKeyType] = it.keyLog.currentKeyType
             }
-            Locations.tableName -> {
+            is Locations -> {
                 this[Locations.timestamp] = it.timestamp
                 this[Locations.utcOffset] = it.utcOffset
                 this[Locations.subjectEmail] = it.subjectEmail
@@ -175,7 +220,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[Locations.accuracy] = it.location.accuracy
                 this[Locations.speed] = it.location.speed
             }
-            Medias.tableName -> {
+            is Medias -> {
                 this[Medias.timestamp] = it.timestamp
                 this[Medias.utcOffset] = it.utcOffset
                 this[Medias.subjectEmail] = it.subjectEmail
@@ -183,7 +228,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[Medias.uploadTime] = uploadTime
                 this[Medias.mimeType] = it.media.mimeType
             }
-            Messages.tableName -> {
+            is Messages -> {
                 this[Messages.timestamp] = it.timestamp
                 this[Messages.utcOffset] = it.utcOffset
                 this[Messages.subjectEmail] = it.subjectEmail
@@ -196,7 +241,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[Messages.isStarred] = it.message.isStarred
                 this[Messages.isPinned] = it.message.isPinned
             }
-            Notifications.tableName -> {
+            is Notifications -> {
                 this[Notifications.timestamp] = it.timestamp
                 this[Notifications.utcOffset] = it.utcOffset
                 this[Notifications.subjectEmail] = it.subjectEmail
@@ -214,7 +259,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[Notifications.lightColor] = it.notification.lightColor
                 this[Notifications.isPosted] = it.notification.isPosted
             }
-            PhysicalStats.tableName -> {
+            is PhysicalStats -> {
                 this[PhysicalStats.timestamp] = it.timestamp
                 this[PhysicalStats.utcOffset] = it.utcOffset
                 this[PhysicalStats.subjectEmail] = it.subjectEmail
@@ -225,7 +270,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[PhysicalStats.endTime] = it.physicalStat.endTime
                 this[PhysicalStats.value] = it.physicalStat.value
             }
-            Surveys.tableName -> {
+            is Surveys -> {
                 this[Surveys.timestamp] = it.timestamp
                 this[Surveys.utcOffset] = it.utcOffset
                 this[Surveys.subjectEmail] = it.subjectEmail
@@ -240,7 +285,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[Surveys.responseTime] = it.survey.responseTime
                 this[Surveys.json] = it.survey.json
             }
-            DataTraffics.tableName -> {
+            is DataTraffics -> {
                 this[DataTraffics.timestamp] = it.timestamp
                 this[DataTraffics.utcOffset] = it.utcOffset
                 this[DataTraffics.subjectEmail] = it.subjectEmail
@@ -253,7 +298,7 @@ class DBWriter(private val database: Database, private val writeBuffer: WriteBuf
                 this[DataTraffics.mobileRxBytes] = it.dataTraffic.mobileRxBytes
                 this[DataTraffics.mobileTxBytes] = it.dataTraffic.mobileTxBytes
             }
-            Wifis.tableName -> {
+            is Wifis -> {
                 this[Wifis.timestamp] = it.timestamp
                 this[Wifis.utcOffset] = it.utcOffset
                 this[Wifis.subjectEmail] = it.subjectEmail

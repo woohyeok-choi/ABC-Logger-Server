@@ -2,38 +2,59 @@ package kaist.iclab.abclogger
 
 import io.grpc.Server
 import io.grpc.ServerBuilder
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asExecutor
-import org.koin.core.KoinComponent
-import org.koin.core.context.startKoin
-import org.koin.core.inject
 
-fun main(vararg args: String) {
-    val portNumber = args.firstOrNull()?.toIntOrNull() ?: 50051
-    startKoin {
-        modules(serverModule)
-    }
-    val app = App(portNumber)
-    app.start()
-}
+class App(private val portNumber: Int,
+          logPath: String,
+          serverName: String,
+          dbPortNumber: Int,
+          dbName: String) {
 
-class App(portNumber: Int) : KoinComponent {
-    private val dataOperation : DataOperationService by inject()
-    private val inserter: DBWriter by inject()
+    private val allTables = arrayOf(
+            PhysicalActivityTransitions,
+            PhysicalActivities,
+            AppUsageEvents,
+            Batteries,
+            Bluetoothes,
+            CallLogs,
+            DeviceEvents,
+            ExternalSensors,
+            InstalledApps,
+            InternalSensors,
+            KeyLogs,
+            Locations,
+            Medias,
+            Messages,
+            Notifications,
+            PhysicalStats,
+            Surveys,
+            DataTraffics,
+            Wifis
+    )
 
-    val server: Server = ServerBuilder.forPort(portNumber)
+    private val db = DB(allTables, serverName, dbPortNumber, dbName)
+    private val dbReader = DBReader(db.readOnlyDb)
+    private val dbWriter = DBWriter(db.writeOnlyDb, allTables)
+    private val dataOperation = DataOperationService(dbReader, dbWriter)
+
+    private val server: Server = ServerBuilder.forPort(portNumber)
             .addService(dataOperation)
-            .executor(Dispatchers.IO.asExecutor())
             .build()
 
+    init {
+        Log.bind(logPath)
+    }
+
     fun start() {
-        inserter.subscribe()
-        server.start()
-        server.awaitTermination()
+        Log.info("Server started with port: $portNumber")
+
+        dbWriter.subscribe()
+        server.start().awaitTermination()
     }
 
     fun stop() {
-        inserter.unsubscribe()
-        server.shutdown()
+        Log.info("Server stopped.")
+
+        dbWriter.unsubscribe()
+        server.shutdown().awaitTermination()
     }
 }

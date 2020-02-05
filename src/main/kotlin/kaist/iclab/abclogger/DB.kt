@@ -2,14 +2,21 @@ package kaist.iclab.abclogger
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import kotlinx.coroutines.*
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.Transaction
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
+import java.util.concurrent.TimeUnit
 
-class DB (private val tables: Array<BaseTable>) {
+class DB (private val tables: Array<BaseTable>,
+          serverName: String,
+          portNumber: Int,
+          dbName: String
+) {
     private fun Transaction.createUser(properties: Properties, readOnly: Boolean) {
         val userName = properties.getProperty("dataSource.user")
                 ?: throw IllegalArgumentException("There is no property named \'dataSource.user\'.")
@@ -29,9 +36,19 @@ class DB (private val tables: Array<BaseTable>) {
             ${'$'}CREATE_USER${'$'}
         """.trimIndent()
 
-        val grantStatement = """
-            GRANT ${if (readOnly) "SELECT" else "INSERT, UPDATE"} ON ALL TABLES IN SCHEMA "$SCHEMA_NAME" TO $userName;
-        """.trimIndent()
+        val grantStatement = if(readOnly) {
+            """
+            GRANT USAGE ON SCHEMA $SCHEMA_NAME TO $userName;
+            GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA $SCHEMA_NAME TO $userName;
+            GRANT SELECT ON ALL TABLES IN SCHEMA $SCHEMA_NAME TO $userName;
+            """
+        } else {
+            """
+            GRANT USAGE ON SCHEMA $SCHEMA_NAME TO $userName;
+            GRANT ALL ON ALL SEQUENCES IN SCHEMA $SCHEMA_NAME TO $userName;
+            GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA $SCHEMA_NAME TO $userName;
+            """
+        }.trimIndent()
 
         exec(createStatement)
         exec(grantStatement)
@@ -54,23 +71,29 @@ class DB (private val tables: Array<BaseTable>) {
         return Properties().apply { load(inputStream) }
     }
 
+    private val masterProperties by lazy {
+        loadProperties(FILE_MASTER_PROPERTIES).apply {
+            put("dataSource.databaseName", dbName)
+            put("dataSource.serverName", serverName)
+            put("dataSource.portNumber", portNumber)
+        }
+    }
 
     private val readOnlyDataSource by lazy {
-        val masterProperties = loadProperties(FILE_MASTER_PROPERTIES)
+        val masterProperties = masterProperties
         val readerProperties = loadProperties(FILE_READER_PROPERTIES)
 
         return@lazy HikariDataSource(HikariConfig(mergeProperties(masterProperties, readerProperties)))
     }
 
     private val writeOnlyDataSource by lazy {
-        val masterProperties = loadProperties(FILE_MASTER_PROPERTIES)
+        val masterProperties = masterProperties
         val writerProperties = loadProperties(FILE_WRITER_PROPERTIES)
 
         return@lazy HikariDataSource(HikariConfig(mergeProperties(masterProperties, writerProperties)))
     }
 
-    init {
-        val masterProperties = loadProperties(FILE_MASTER_PROPERTIES)
+    fun bind() {
         val masterSource = HikariDataSource(HikariConfig(masterProperties))
         val masterDb = Database.connect(masterSource)
 
@@ -79,10 +102,10 @@ class DB (private val tables: Array<BaseTable>) {
 
         transaction(masterDb) {
             createSchema()
+            SchemaUtils.create(*tables)
+
             createUser(properties = mergeProperties(masterProperties, readerProperties), readOnly = true)
             createUser(properties = mergeProperties(masterProperties, writerProperties), readOnly = false)
-
-            SchemaUtils.create(*tables)
         }
         masterSource.close()
     }
