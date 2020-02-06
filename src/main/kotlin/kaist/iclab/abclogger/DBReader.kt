@@ -202,6 +202,7 @@ class DBReader(private val db: Database) {
                             secondValue = row[ExternalSensors.secondValue]
                             thirdValue = row[ExternalSensors.thirdValue]
                             fourthValue = row[ExternalSensors.fourthValue]
+                            collection = row[ExternalSensors.collection]
                         }.build()
                     }.build()
                 }

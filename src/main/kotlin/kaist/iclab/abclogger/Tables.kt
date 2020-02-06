@@ -78,6 +78,7 @@ object ExternalSensors : BaseTable("$SCHEMA_NAME.external_sensor") {
     val secondValue: Column<Float> = defFloat("second_value")
     val thirdValue: Column<Float> = defFloat("third_value")
     val fourthValue: Column<Float> = defFloat("fourth_value")
+    val collection: Column<String> = defText("collection")
 }
 
 object InstalledApps : BaseTable("$SCHEMA_NAME.installed_app") {

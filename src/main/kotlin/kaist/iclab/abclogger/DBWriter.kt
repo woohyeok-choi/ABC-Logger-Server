@@ -163,6 +163,7 @@ class DBWriter(private val database: Database,
                 this[ExternalSensors.secondValue] = it.externalSensor.secondValue
                 this[ExternalSensors.thirdValue] = it.externalSensor.thirdValue
                 this[ExternalSensors.fourthValue] = it.externalSensor.fourthValue
+                this[ExternalSensors.collection] = it.externalSensor.collection
             }
             is InstalledApps -> {
                 this[InstalledApps.timestamp] = it.timestamp
