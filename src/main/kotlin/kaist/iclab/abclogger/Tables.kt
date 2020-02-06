@@ -91,7 +91,7 @@ object InstalledApps : BaseTable("$SCHEMA_NAME.installed_app") {
 
 object InternalSensors : BaseTable("$SCHEMA_NAME.internal_sensor") {
     val type: Column<String> = defVarchar("sensor_id", 256)
-    val accuracy: Column<String> = defVarchar("name", 256)
+    val accuracy: Column<String> = defVarchar("accuracy", 256)
     val firstValue: Column<Float> = defFloat("first_value")
     val secondValue: Column<Float> = defFloat("second_value")
     val thirdValue: Column<Float> = defFloat("third_value")

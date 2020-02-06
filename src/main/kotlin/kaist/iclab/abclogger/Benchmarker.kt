@@ -49,7 +49,7 @@ suspend fun readData(): List<DatumProto.Datum> = withContext(Dispatchers.IO) {
 }
 
 suspend fun upload(size: Int) = withContext(Dispatchers.IO) {
-    val channel = ManagedChannelBuilder.forTarget("143.248.90.87:50052")
+    val channel = ManagedChannelBuilder.forTarget("143.248.100.24:50052")
             .usePlaintext()
             .build()
 
