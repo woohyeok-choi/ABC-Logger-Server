@@ -204,8 +204,6 @@ class DBWriter(private val database: Database,
                 this[KeyLogs.distance] = it.keyLog.distance
                 this[KeyLogs.timeTaken] = it.keyLog.timeTaken
                 this[KeyLogs.keyboardType] = it.keyLog.keyboardType
-                this[KeyLogs.prevKey] = it.keyLog.prevKey
-                this[KeyLogs.currentKey] = it.keyLog.currentKey
                 this[KeyLogs.prevKeyType] = it.keyLog.prevKeyType
                 this[KeyLogs.currentKeyType] = it.keyLog.currentKeyType
             }

@@ -49,7 +49,7 @@ suspend fun readData(): List<DatumProto.Datum> = withContext(Dispatchers.IO) {
 }
 
 suspend fun upload(size: Int) = withContext(Dispatchers.IO) {
-    val channel = ManagedChannelBuilder.forTarget("143.248.100.24:50052")
+    val channel = ManagedChannelBuilder.forTarget("143.248.90.87:50051")
             .usePlaintext()
             .build()
 
@@ -58,7 +58,7 @@ suspend fun upload(size: Int) = withContext(Dispatchers.IO) {
     val data = (0 until size).map {
         async {
             try {
-                stub.createDatum(DatumProto.Datum.newBuilder().setAppUsageEvent(DatumProto.Datum.AppUsageEvent.getDefaultInstance()).build())
+                stub.createDatum(DatumProto.Datum.newBuilder().setPhysicalActivityTransition(DatumProto.Datum.PhysicalActivityTransition.getDefaultInstance()).build())
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
