@@ -1,23 +1,30 @@
 FROM openjdk:8-jre-alpine
 
-ENV APP_USER abc
+ENV APP_USER abclogger
 RUN adduser -D -g '' $APP_USER
 
 ENV PORT_NUMBER 50051
-ENV LOG_PATH /home/app/logs
-ENV POSTGRES_USER postgres
-ENV POSTGRES_PASSWORD $POSTGRES_USER
-ENV POSTGRES_SERVER_NAME localhost
-ENV POSTGRES_PORT_NUMBER 5432
-ENV POSTGRES_DB_NAME $POSTGRES_USER
+ENV MONGO_SERVER_NAME localhost
+ENV MONGO_PORT_NUMBER 27017
+ENV MONGO_DB_NAME data
+ENV MONGO_ROOT_USER mongo
+ENV MONGO_ROOT_PASSWORD mongo
+ENV MONGO_WRITE_USER $MONGO_ROOT_USER
+ENV MONGO_WRITE_PASSWORD $MONGO_ROOT_PASSWORD
+ENV ADMIN_EMAIL abclogger@abclogger
+ENV ADMIN_PASSWORD abclogger
+ENV ERROR_RECIPIENTS abclogger@abclogger
+ENV LOG_PATH /home/abclogger/logs
 
-RUN mkdir /home/app
-RUN chown -R $APP_USER /home/app
+RUN mkdir /home/abclogger
+RUN mkdir $LOG_PATH
+
+RUN chown -R $APP_USER /home/abclogger
 
 USER $APP_USER
 
-COPY ./jars/abc-logger-server-0.9.4-all.jar /home/app/abc-logger-server-0.9.4-all.jar
+COPY ./jars/abc-logger-server-0.9.4-all.jar /home/abclogger/abc-logger-server-0.9.4-all.jar
 
-WORKDIR /home/app
+WORKDIR /home/abclogger
 
 CMD ["java", "-server", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:InitialRAMFraction=2", "-XX:MinRAMFraction=2", "-XX:MaxRAMFraction=2", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-XX:+UseStringDeduplication", "-jar", "abc-logger-server-0.9.4-all.jar"]
