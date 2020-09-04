@@ -1,111 +1,176 @@
-package kaist.iclab.abclogger
+package kaist.iclab.abclogger.schema
 
+import com.google.protobuf.Descriptors
+import kaist.iclab.abclogger.grpc.proto.CommonProtos
 import kaist.iclab.abclogger.grpc.proto.DataProtos
+import kotlinx.serialization.ContextualSerialization
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Polymorphic
 import kotlinx.serialization.Serializable
+import java.time.OffsetDateTime
+import kotlin.reflect.full.companionObject
+import kotlin.reflect.full.companionObjectInstance
 
-interface ToProto<T : ProtoMessage> {
-    fun toProto(): T
-}
-
-interface ToObject<T : ProtoMessage, V : Any> {
-    fun toObject(proto: T): V
-}
-
-
+@Polymorphic
 @Serializable
-abstract class Value(val dataType: String)
+open class Value
 
 @Serializable
 data class Datum(
         val timestamp: Long? = null,
-        val utcOffset: Float? = null,
+        val utcOffsetSec: Int? = null,
+        @ContextualSerialization
+        val offsetDateTime: OffsetDateTime? = null,
         val email: String? = null,
         val deviceInfo: String? = null,
         val deviceId: String? = null,
         val uploadTime: Long? = null,
-        val value: Value? = null
-): ToProto<DataProtos.Datum> {
-    override fun toProto(): DataProtos.Datum =
-            DataProtos.Datum.newBuilder().apply {
-                timestamp = this@Datum.timestamp ?: Long.MIN_VALUE
-                utcOffset = this@Datum.utcOffset ?: Float.NaN
-                subjectEmail = this@Datum.email ?: ""
-                deviceInfo = this@Datum.deviceInfo ?: ""
-                deviceId = this@Datum.deviceId ?: ""
-                uploadTime = this@Datum.uploadTime ?: Long.MIN_VALUE
-
-                when (value) {
-                    is PhysicalActivityTransition -> physicalActivityTransition = this@Datum.value.toProto()
-                    is PhysicalActivity -> physicalActivity = this@Datum.value.toProto()
-                    is AppUsageEvent -> appUsageEvent = this@Datum.value.toProto()
-                    is Battery -> battery = this@Datum.value.toProto()
-                    is Bluetooth -> bluetooth = this@Datum.value.toProto()
-                    is CallLog -> callLog = this@Datum.value.toProto()
-                    is DeviceEvent -> deviceEvent = this@Datum.value.toProto()
-                    is Sensor -> sensor = this@Datum.value.toProto()
-                    is InstalledApp -> installedApp = this@Datum.value.toProto()
-                    is KeyLog -> keyLog = this@Datum.value.toProto()
-                    is Location -> location = this@Datum.value.toProto()
-                    is Media -> media = this@Datum.value.toProto()
-                    is Message -> message = this@Datum.value.toProto()
-                    is Notification -> notification = this@Datum.value.toProto()
-                    is PhysicalStat -> physicalStat = this@Datum.value.toProto()
-                    is Survey -> survey = this@Datum.value.toProto()
-                    is DataTraffic -> dataTraffic = this@Datum.value.toProto()
-                    is Wifi -> wifi = this@Datum.value.toProto()
+        @ContextualSerialization
+        val offsetUploadDateTime: OffsetDateTime? = null,
+        val value: Value? = null,
+        val dataType: String? = null
+) {
+    companion object : ProtoSerializer<Datum, DataProtos.Datum> {
+        private fun dataCaseToDataType(dataCase: DataProtos.Datum.DataCase): CommonProtos.DataType =
+                when (dataCase) {
+                    DataProtos.Datum.DataCase.PHYSICAL_ACTIVITY_TRANSITION -> CommonProtos.DataType.PHYSICAL_ACTIVITY_TRANSITION
+                    DataProtos.Datum.DataCase.PHYSICAL_ACTIVITY -> CommonProtos.DataType.PHYSICAL_ACTIVITY
+                    DataProtos.Datum.DataCase.APP_USAGE_EVENT -> CommonProtos.DataType.APP_USAGE_EVENT
+                    DataProtos.Datum.DataCase.BATTERY -> CommonProtos.DataType.BATTERY
+                    DataProtos.Datum.DataCase.BLUETOOTH -> CommonProtos.DataType.BLUETOOTH
+                    DataProtos.Datum.DataCase.CALL_LOG -> CommonProtos.DataType.CALL_LOG
+                    DataProtos.Datum.DataCase.DEVICE_EVENT -> CommonProtos.DataType.DEVICE_EVENT
+                    DataProtos.Datum.DataCase.SENSOR -> CommonProtos.DataType.SENSOR
+                    DataProtos.Datum.DataCase.INSTALLED_APP -> CommonProtos.DataType.INSTALLED_APP
+                    DataProtos.Datum.DataCase.KEY_LOG -> CommonProtos.DataType.KEY_LOG
+                    DataProtos.Datum.DataCase.LOCATION -> CommonProtos.DataType.LOCATION
+                    DataProtos.Datum.DataCase.MEDIA -> CommonProtos.DataType.MEDIA
+                    DataProtos.Datum.DataCase.MESSAGE -> CommonProtos.DataType.MESSAGE
+                    DataProtos.Datum.DataCase.NOTIFICATION -> CommonProtos.DataType.NOTIFICATION
+                    DataProtos.Datum.DataCase.PHYSICAL_STAT -> CommonProtos.DataType.PHYSICAL_STAT
+                    DataProtos.Datum.DataCase.SURVEY -> CommonProtos.DataType.SURVEY
+                    DataProtos.Datum.DataCase.DATA_TRAFFIC -> CommonProtos.DataType.DATA_TRAFFIC
+                    DataProtos.Datum.DataCase.WIFI -> CommonProtos.DataType.WIFI
+                    else -> CommonProtos.DataType.NOT_SPECIFIED
                 }
-            }.build()
 
-    companion object : ToObject<DataProtos.Datum, Datum> {
-        override fun toObject(proto: DataProtos.Datum): Datum =
-                Datum(
-                        timestamp = proto.timestamp,
-                        utcOffset = proto.utcOffset,
-                        email = proto.subjectEmail
-                        type = proto.type,
-                        isEntered = proto.isEntered
-                )
+        override fun toProto(o: Datum): DataProtos.Datum =
+                with(o) {
+                    DataProtos.Datum.newBuilder().apply {
+                        timestamp = this@with.timestamp ?: Long.MIN_VALUE
+                        utcOffsetSec = this@with.utcOffsetSec ?: Int.MIN_VALUE
+                        email = this@with.email ?: ""
+                        deviceInfo = this@with.deviceInfo ?: ""
+                        deviceId = this@with.deviceId ?: ""
+                        uploadTime = this@with.uploadTime ?: Long.MIN_VALUE
+
+                        when (value) {
+                            is PhysicalActivityTransition -> physicalActivityTransition = PhysicalActivityTransition.toProto(value)
+                            is PhysicalActivity -> physicalActivity = PhysicalActivity.toProto(value)
+                            is AppUsageEvent -> appUsageEvent = AppUsageEvent.toProto(value)
+                            is Battery -> battery = Battery.toProto(value)
+                            is Bluetooth -> bluetooth = Bluetooth.toProto(value)
+                            is CallLog -> callLog = CallLog.toProto(value)
+                            is DeviceEvent -> deviceEvent = DeviceEvent.toProto(value)
+                            is Sensor -> sensor = Sensor.toProto(value)
+                            is InstalledApp -> installedApp = InstalledApp.toProto(value)
+                            is KeyLog -> keyLog = KeyLog.toProto(value)
+                            is Location -> location = Location.toProto(value)
+                            is Media -> media = Media.toProto(value)
+                            is Message -> message = Message.toProto(value)
+                            is Notification -> notification = Notification.toProto(value)
+                            is PhysicalStat -> physicalStat = PhysicalStat.toProto(value)
+                            is Survey -> survey = Survey.toProto(value)
+                            is DataTraffic -> dataTraffic = DataTraffic.toProto(value)
+                            is Wifi -> wifi = Wifi.toProto(value)
+                        }
+                    }.build()
+                }
+
+        override fun toObject(p: DataProtos.Datum): Datum =
+                with(p) {
+                    Datum(
+                            timestamp = timestamp,
+                            utcOffsetSec = utcOffsetSec,
+                            email = email,
+                            deviceInfo = deviceInfo,
+                            deviceId = deviceId,
+                            uploadTime = uploadTime,
+                            dataType = dataCaseToDataType(p.dataCase).name,
+                            value = when {
+                                hasPhysicalActivityTransition() -> PhysicalActivityTransition.toObject(physicalActivityTransition)
+                                hasPhysicalActivity() -> PhysicalActivity.toObject(physicalActivity)
+                                hasAppUsageEvent() -> AppUsageEvent.toObject(appUsageEvent)
+                                hasBattery() -> Battery.toObject(battery)
+                                hasBluetooth() -> Bluetooth.toObject(bluetooth)
+                                hasCallLog() -> CallLog.toObject(callLog)
+                                hasDeviceEvent() -> DeviceEvent.toObject(deviceEvent)
+                                hasSensor() -> Sensor.toObject(sensor)
+                                hasInstalledApp() -> InstalledApp.toObject(installedApp)
+                                hasKeyLog() -> KeyLog.toObject(keyLog)
+                                hasLocation() -> Location.toObject(location)
+                                hasMedia() -> Media.toObject(media)
+                                hasMessage() -> Message.toObject(message)
+                                hasNotification() -> Notification.toObject(notification)
+                                hasPhysicalStat() -> PhysicalStat.toObject(physicalStat)
+                                hasSurvey() -> Survey.toObject(survey)
+                                hasDataTraffic() -> DataTraffic.toObject(dataTraffic)
+                                hasWifi() -> Wifi.toObject(wifi)
+                                else -> null
+                            }
+                    )
+                }
+
     }
 }
+
 
 @Serializable
 data class PhysicalActivityTransition(
         val type: String? = null,
         val isEntered: Boolean? = null
-) : Value("physical_activity_transition"), ToProto<DataProtos.PhysicalActivityTransition> {
-    override fun toProto(): DataProtos.PhysicalActivityTransition =
-            DataProtos.PhysicalActivityTransition.newBuilder().apply {
-                type = this@PhysicalActivityTransition.type ?: ""
-                isEntered = this@PhysicalActivityTransition.isEntered ?: false
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<PhysicalActivityTransition, DataProtos.PhysicalActivityTransition> {
+        override fun toProto(o: PhysicalActivityTransition): DataProtos.PhysicalActivityTransition =
+                with(o) {
+                    DataProtos.PhysicalActivityTransition.newBuilder().apply {
+                        type = this@with.type ?: ""
+                        isEntered = this@with.isEntered ?: false
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.PhysicalActivityTransition, PhysicalActivityTransition> {
-        override fun toObject(proto: DataProtos.PhysicalActivityTransition): PhysicalActivityTransition =
-                PhysicalActivityTransition(
-                        type = proto.type,
-                        isEntered = proto.isEntered
-                )
+        override fun toObject(p: DataProtos.PhysicalActivityTransition): PhysicalActivityTransition =
+                with(p) {
+                    PhysicalActivityTransition(
+                            type = type,
+                            isEntered = isEntered
+                    )
+                }
     }
 }
-
 
 @Serializable
 data class PhysicalActivity(
         val type: String? = null,
         val confidence: Int? = null
-) : Value("physical_activity"), ToProto<DataProtos.PhysicalActivity> {
-    override fun toProto(): DataProtos.PhysicalActivity =
-            DataProtos.PhysicalActivity.newBuilder().apply {
-                type = this@PhysicalActivity.type ?: ""
-                confidence = this@PhysicalActivity.confidence ?: Int.MIN_VALUE
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<PhysicalActivity, DataProtos.PhysicalActivity> {
+        override fun toProto(o: PhysicalActivity): DataProtos.PhysicalActivity =
+                with(o) {
+                    DataProtos.PhysicalActivity.newBuilder().apply {
+                        type = this@with.type ?: ""
+                        confidence = this@with.confidence ?: Int.MIN_VALUE
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.PhysicalActivity, PhysicalActivity> {
-        override fun toObject(proto: DataProtos.PhysicalActivity): PhysicalActivity =
-                PhysicalActivity(
-                        type = proto.type,
-                        confidence = proto.confidence
-                )
+        override fun toObject(p: DataProtos.PhysicalActivity): PhysicalActivity =
+                with(p) {
+                    PhysicalActivity(
+                            type = type,
+                            confidence = confidence
+                    )
+                }
+
     }
 }
 
@@ -117,25 +182,29 @@ data class AppUsageEvent(
         val type: String? = null,
         val isSystemApp: Boolean? = null,
         val isUpdatedSystemApp: Boolean? = null
-) : Value("app_usage_event"), ToProto<DataProtos.AppUsageEvent> {
-    override fun toProto(): DataProtos.AppUsageEvent =
-            DataProtos.AppUsageEvent.newBuilder().apply {
-                name = this@AppUsageEvent.name ?: ""
-                packageName = this@AppUsageEvent.packageName ?: ""
-                type = this@AppUsageEvent.type ?: ""
-                isSystemApp = this@AppUsageEvent.isSystemApp ?: false
-                isUpdatedSystemApp = this@AppUsageEvent.isUpdatedSystemApp ?: false
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<AppUsageEvent, DataProtos.AppUsageEvent> {
+        override fun toProto(o: AppUsageEvent): DataProtos.AppUsageEvent =
+                with(o) {
+                    DataProtos.AppUsageEvent.newBuilder().apply {
+                        name = this@with.name ?: ""
+                        packageName = this@with.packageName ?: ""
+                        type = this@with.type ?: ""
+                        isSystemApp = this@with.isSystemApp ?: false
+                        isUpdatedSystemApp = this@with.isUpdatedSystemApp ?: false
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.AppUsageEvent, AppUsageEvent> {
-        override fun toObject(proto: DataProtos.AppUsageEvent): AppUsageEvent =
-                AppUsageEvent(
-                        name = proto.name,
-                        packageName = proto.packageName,
-                        type = proto.type,
-                        isSystemApp = proto.isSystemApp,
-                        isUpdatedSystemApp = proto.isUpdatedSystemApp
-                )
+        override fun toObject(p: DataProtos.AppUsageEvent): AppUsageEvent =
+                with(p) {
+                    AppUsageEvent(
+                            name = name,
+                            packageName = packageName,
+                            type = type,
+                            isSystemApp = isSystemApp,
+                            isUpdatedSystemApp = isUpdatedSystemApp
+                    )
+                }
     }
 }
 
@@ -148,29 +217,33 @@ data class Battery(
         val health: String? = null,
         val pluggedType: String? = null,
         val status: String? = null
-) : Value("battery"), ToProto<DataProtos.Battery> {
-    override fun toProto(): DataProtos.Battery =
-            DataProtos.Battery.newBuilder().apply {
-                level = this@Battery.level ?: Int.MIN_VALUE
-                scale = this@Battery.scale ?: Int.MIN_VALUE
-                temperature = this@Battery.temperature ?: Int.MIN_VALUE
-                voltage = this@Battery.voltage ?: Int.MIN_VALUE
-                health = this@Battery.health ?: ""
-                pluggedType = this@Battery.pluggedType ?: ""
-                status = this@Battery.status ?: ""
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<Battery, DataProtos.Battery> {
+        override fun toProto(o: Battery): DataProtos.Battery =
+                with(o) {
+                    DataProtos.Battery.newBuilder().apply {
+                        level = this@with.level ?: Int.MIN_VALUE
+                        scale = this@with.scale ?: Int.MIN_VALUE
+                        temperature = this@with.temperature ?: Int.MIN_VALUE
+                        voltage = this@with.voltage ?: Int.MIN_VALUE
+                        health = this@with.health ?: ""
+                        pluggedType = this@with.pluggedType ?: ""
+                        status = this@with.status ?: ""
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.Battery, Battery> {
-        override fun toObject(proto: DataProtos.Battery): Battery =
-                Battery(
-                        level = proto.level,
-                        scale = proto.scale,
-                        temperature = proto.temperature,
-                        voltage = proto.voltage,
-                        health = proto.health,
-                        pluggedType = proto.pluggedType,
-                        status = proto.status
-                )
+        override fun toObject(p: DataProtos.Battery): Battery =
+                with(p) {
+                    Battery(
+                            level = level,
+                            scale = scale,
+                            temperature = temperature,
+                            voltage = voltage,
+                            health = health,
+                            pluggedType = pluggedType,
+                            status = status
+                    )
+                }
     }
 }
 
@@ -178,22 +251,35 @@ data class Battery(
 data class Bluetooth(
         val deviceName: String? = null,
         val address: String? = null,
-        val rssi: Int? = null
-) : Value("bluetooth"), ToProto<DataProtos.Bluetooth> {
-    override fun toProto(): DataProtos.Bluetooth =
-            DataProtos.Bluetooth.newBuilder().apply {
-                deviceName = this@Bluetooth.deviceName ?: ""
-                address = this@Bluetooth.address ?: ""
-                rssi = this@Bluetooth.rssi ?: Int.MIN_VALUE
-            }.build()
+        val rssi: Int? = null,
+        val bondState: String? = null,
+        val deviceType: String? = null,
+        val isLowEnergy: Boolean? = null
+) : Value() {
+    companion object : ProtoSerializer<Bluetooth, DataProtos.Bluetooth> {
+        override fun toProto(o: Bluetooth): DataProtos.Bluetooth =
+                with(o) {
+                    DataProtos.Bluetooth.newBuilder().apply {
+                        deviceName = this@with.deviceName ?: ""
+                        address = this@with.address ?: ""
+                        rssi = this@with.rssi ?: Int.MIN_VALUE
+                        bondState = this@with.bondState ?: ""
+                        deviceType = this@with.deviceType ?: ""
+                        isLowEnergy = this@with.isLowEnergy ?: false
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.Bluetooth, Bluetooth> {
-        override fun toObject(proto: DataProtos.Bluetooth): Bluetooth =
-                Bluetooth(
-                        deviceName = proto.deviceName,
-                        address = proto.address,
-                        rssi = proto.rssi
-                )
+        override fun toObject(p: DataProtos.Bluetooth): Bluetooth =
+                with(p) {
+                    Bluetooth(
+                            deviceName = deviceName,
+                            address = address,
+                            rssi = rssi,
+                            bondState = bondState,
+                            deviceType = deviceType,
+                            isLowEnergy = isLowEnergy
+                    )
+                }
     }
 }
 
@@ -207,48 +293,56 @@ data class CallLog(
         val contactType: String? = null,
         val isStarred: Boolean? = null,
         val isPinned: Boolean? = null
-) : Value("call_log"), ToProto<DataProtos.CallLog> {
-    override fun toProto(): DataProtos.CallLog =
-            DataProtos.CallLog.newBuilder().apply {
-                duration = this@CallLog.duration ?: Long.MIN_VALUE
-                number = this@CallLog.number ?: ""
-                type = this@CallLog.type ?: ""
-                dataUsage = this@CallLog.dataUsage ?: Long.MIN_VALUE
-                presentation = this@CallLog.presentation ?: ""
-                contactType = this@CallLog.contactType ?: ""
-                isStarred = this@CallLog.isStarred ?: false
-                isPinned = this@CallLog.isPinned ?: false
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<CallLog, DataProtos.CallLog> {
+        override fun toProto(o: CallLog): DataProtos.CallLog =
+                with(o) {
+                    DataProtos.CallLog.newBuilder().apply {
+                        duration = this@with.duration ?: Long.MIN_VALUE
+                        number = this@with.number ?: ""
+                        type = this@with.type ?: ""
+                        dataUsage = this@with.dataUsage ?: Long.MIN_VALUE
+                        presentation = this@with.presentation ?: ""
+                        contactType = this@with.contactType ?: ""
+                        isStarred = this@with.isStarred ?: false
+                        isPinned = this@with.isPinned ?: false
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.CallLog, CallLog> {
-        override fun toObject(proto: DataProtos.CallLog): CallLog =
-                CallLog(
-                        duration = proto.duration,
-                        number = proto.number,
-                        type = proto.type,
-                        dataUsage = proto.dataUsage,
-                        presentation = proto.presentation,
-                        contactType = proto.contactType,
-                        isStarred = proto.isStarred,
-                        isPinned = proto.isPinned
-                )
+        override fun toObject(p: DataProtos.CallLog): CallLog =
+                with(p) {
+                    CallLog(
+                            duration = duration,
+                            number = number,
+                            type = type,
+                            dataUsage = dataUsage,
+                            presentation = presentation,
+                            contactType = contactType,
+                            isStarred = isStarred,
+                            isPinned = isPinned
+                    )
+                }
     }
 }
 
 @Serializable
 data class DeviceEvent(
         val type: String? = null
-) : Value("device_event"), ToProto<DataProtos.DeviceEvent> {
-    override fun toProto(): DataProtos.DeviceEvent =
-            DataProtos.DeviceEvent.newBuilder().apply {
-                type = this@DeviceEvent.type ?: ""
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<DeviceEvent, DataProtos.DeviceEvent> {
+        override fun toProto(o: DeviceEvent): DataProtos.DeviceEvent =
+                with(o) {
+                    DataProtos.DeviceEvent.newBuilder().apply {
+                        type = this@with.type ?: ""
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.DeviceEvent, DeviceEvent> {
-        override fun toObject(proto: DataProtos.DeviceEvent): DeviceEvent =
-                DeviceEvent(
-                        type = proto.type
-                )
+        override fun toObject(p: DataProtos.DeviceEvent): DeviceEvent =
+                with(p) {
+                    DeviceEvent(
+                            type = type
+                    )
+                }
     }
 }
 
@@ -258,26 +352,32 @@ data class Sensor(
         val name: String? = null,
         val type: String? = null,
         val description: String? = null,
-        val values: List<String> = emptyList()
-) : Value("sensor"), ToProto<DataProtos.Sensor> {
-    override fun toProto(): DataProtos.Sensor =
-            DataProtos.Sensor.newBuilder().apply {
-                sensorId = this@Sensor.sensorId ?: ""
-                name = this@Sensor.name ?: ""
-                type = this@Sensor.type ?: ""
-                description = this@Sensor.description ?: ""
-                addAllValues(this@Sensor.values)
-            }.build()
+        val value: List<String> = emptyList()
+) : Value() {
+    companion object : ProtoSerializer<Sensor, DataProtos.Sensor> {
+        override fun toProto(o: Sensor): DataProtos.Sensor =
+                with(o) {
+                    DataProtos.Sensor.newBuilder().apply {
+                        sensorId = this@with.sensorId ?: ""
+                        name = this@with.name ?: ""
+                        type = this@with.type ?: ""
+                        description = this@with.description ?: ""
+                        addAllValue(this@with.value)
+                    }.build()
 
-    companion object : ToObject<DataProtos.Sensor, Sensor> {
-        override fun toObject(proto: DataProtos.Sensor): Sensor =
-                Sensor(
-                        sensorId = proto.sensorId,
-                        name = proto.name,
-                        type = proto.type,
-                        description = proto.description,
-                        values = proto.valuesList
-                )
+                }
+
+        override fun toObject(p: DataProtos.Sensor): Sensor =
+                with(p) {
+                    Sensor(
+                            sensorId = sensorId,
+                            name = name,
+                            type = type,
+                            description = description,
+                            value = valueList
+                    )
+                }
+
     }
 }
 
@@ -289,27 +389,34 @@ data class InstalledApp(
         val isUpdatedSystemApp: Boolean? = null,
         val firstInstallTime: Long? = null,
         val lastUpdateTime: Long? = null
-) : Value("installed_app"), ToProto<DataProtos.InstalledApp> {
-    override fun toProto(): DataProtos.InstalledApp =
-            DataProtos.InstalledApp.newBuilder().apply {
-                name = this@InstalledApp.name ?: ""
-                packageName = this@InstalledApp.packageName ?: ""
-                isSystemApp = this@InstalledApp.isSystemApp ?: false
-                isUpdatedSystemApp = this@InstalledApp.isUpdatedSystemApp ?: false
-                firstInstallTime = this@InstalledApp.firstInstallTime ?: Long.MIN_VALUE
-                lastUpdateTime = this@InstalledApp.lastUpdateTime ?: Long.MAX_VALUE
-            }.build()
+) : Value() {
 
-    companion object : ToObject<DataProtos.InstalledApp, InstalledApp> {
-        override fun toObject(proto: DataProtos.InstalledApp): InstalledApp =
-                InstalledApp(
-                        name = proto.name,
-                        packageName = proto.packageName,
-                        isSystemApp = proto.isSystemApp,
-                        isUpdatedSystemApp = proto.isUpdatedSystemApp,
-                        firstInstallTime = proto.firstInstallTime,
-                        lastUpdateTime = proto.lastUpdateTime
-                )
+
+    companion object : ProtoSerializer<InstalledApp, DataProtos.InstalledApp> {
+        override fun toProto(o: InstalledApp): DataProtos.InstalledApp =
+                with(o) {
+                    DataProtos.InstalledApp.newBuilder().apply {
+                        name = this@with.name ?: ""
+                        packageName = this@with.packageName ?: ""
+                        isSystemApp = this@with.isSystemApp ?: false
+                        isUpdatedSystemApp = this@with.isUpdatedSystemApp ?: false
+                        firstInstallTime = this@with.firstInstallTime ?: Long.MIN_VALUE
+                        lastUpdateTime = this@with.lastUpdateTime ?: Long.MIN_VALUE
+                    }.build()
+
+                }
+
+        override fun toObject(p: DataProtos.InstalledApp): InstalledApp =
+                with(p) {
+                    InstalledApp(
+                            name = name,
+                            packageName = packageName,
+                            isSystemApp = isSystemApp,
+                            isUpdatedSystemApp = isUpdatedSystemApp,
+                            firstInstallTime = firstInstallTime,
+                            lastUpdateTime = lastUpdateTime
+                    )
+                }
     }
 }
 
@@ -326,37 +433,41 @@ data class KeyLog(
         val currentKey: String? = null,
         val prevKeyType: String? = null,
         val currentKeyType: String? = null
-) : Value("key_log"), ToProto<DataProtos.KeyLog> {
-    override fun toProto(): DataProtos.KeyLog =
-            DataProtos.KeyLog.newBuilder().apply {
-                name = this@KeyLog.name ?: ""
-                packageName = this@KeyLog.packageName ?: ""
-                isSystemApp = this@KeyLog.isSystemApp ?: false
-                isUpdatedSystemApp = this@KeyLog.isUpdatedSystemApp ?: false
-                distance = this@KeyLog.distance ?: Float.NaN
-                timeTaken = this@KeyLog.timeTaken ?: Long.MIN_VALUE
-                keyboardType = this@KeyLog.keyboardType ?: ""
-                prevKey = this@KeyLog.prevKey ?: ""
-                currentKey = this@KeyLog.currentKey ?: ""
-                prevKeyType = this@KeyLog.prevKeyType ?: ""
-                currentKeyType = this@KeyLog.currentKeyType ?: ""
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<KeyLog, DataProtos.KeyLog> {
+        override fun toProto(o: KeyLog): DataProtos.KeyLog =
+                with(o) {
+                    DataProtos.KeyLog.newBuilder().apply {
+                        name = this@with.name ?: ""
+                        packageName = this@with.packageName ?: ""
+                        isSystemApp = this@with.isSystemApp ?: false
+                        isUpdatedSystemApp = this@with.isUpdatedSystemApp ?: false
+                        distance = this@with.distance ?: Float.NaN
+                        timeTaken = this@with.timeTaken ?: Long.MIN_VALUE
+                        keyboardType = this@with.keyboardType ?: ""
+                        prevKey = this@with.prevKey ?: ""
+                        currentKey = this@with.currentKey ?: ""
+                        prevKeyType = this@with.prevKeyType ?: ""
+                        currentKeyType = this@with.currentKeyType ?: ""
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.KeyLog, KeyLog> {
-        override fun toObject(proto: DataProtos.KeyLog): KeyLog =
-                KeyLog(
-                        name = proto.name,
-                        packageName = proto.packageName,
-                        isSystemApp = proto.isSystemApp,
-                        isUpdatedSystemApp = proto.isUpdatedSystemApp,
-                        distance = proto.distance,
-                        timeTaken = proto.timeTaken,
-                        keyboardType = proto.keyboardType,
-                        prevKey = proto.prevKey,
-                        currentKey = proto.currentKey,
-                        prevKeyType = proto.prevKeyType,
-                        currentKeyType = proto.currentKeyType
-                )
+        override fun toObject(p: DataProtos.KeyLog): KeyLog =
+                with(p) {
+                    KeyLog(
+                            name = name,
+                            packageName = packageName,
+                            isSystemApp = isSystemApp,
+                            isUpdatedSystemApp = isUpdatedSystemApp,
+                            distance = distance,
+                            timeTaken = timeTaken,
+                            keyboardType = keyboardType,
+                            prevKey = prevKey,
+                            currentKey = currentKey,
+                            prevKeyType = prevKeyType,
+                            currentKeyType = currentKeyType
+                    )
+                }
     }
 }
 
@@ -367,42 +478,50 @@ data class Location(
         val altitude: Double? = null,
         val accuracy: Float? = null,
         val speed: Float? = null
-) : Value("location"), ToProto<DataProtos.Location> {
-    override fun toProto(): DataProtos.Location =
-            DataProtos.Location.newBuilder().apply {
-                latitude = this@Location.latitude ?: Double.NaN
-                longitude = this@Location.longitude ?: Double.NaN
-                altitude = this@Location.altitude ?: Double.NaN
-                accuracy = this@Location.accuracy ?: Float.NaN
-                speed = this@Location.speed ?: Float.NaN
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<Location, DataProtos.Location> {
+        override fun toProto(o: Location): DataProtos.Location =
+                with(o) {
+                    DataProtos.Location.newBuilder().apply {
+                        latitude = this@with.latitude ?: Double.NaN
+                        longitude = this@with.longitude ?: Double.NaN
+                        altitude = this@with.altitude ?: Double.NaN
+                        accuracy = this@with.accuracy ?: Float.NaN
+                        speed = this@with.speed ?: Float.NaN
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.Location, Location> {
-        override fun toObject(proto: DataProtos.Location): Location =
-                Location(
-                        latitude = proto.latitude,
-                        longitude = proto.longitude,
-                        altitude = proto.altitude,
-                        accuracy = proto.accuracy,
-                        speed = proto.speed
-                )
+        override fun toObject(p: DataProtos.Location): Location =
+                with(p) {
+                    Location(
+                            latitude = latitude,
+                            longitude = longitude,
+                            altitude = altitude,
+                            accuracy = accuracy,
+                            speed = speed
+                    )
+                }
     }
 }
 
 @Serializable
 data class Media(
         val mimeType: String? = null
-) : Value("media"), ToProto<DataProtos.Media> {
-    override fun toProto(): DataProtos.Media =
-            DataProtos.Media.newBuilder().apply {
-                mimeType = this@Media.mimeType ?: ""
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<Media, DataProtos.Media> {
+        override fun toProto(o: Media): DataProtos.Media =
+                with(o) {
+                    DataProtos.Media.newBuilder().apply {
+                        mimeType = this@with.mimeType ?: ""
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.Media, Media> {
-        override fun toObject(proto: DataProtos.Media): Media =
-                Media(
-                        mimeType = proto.mimeType
-                )
+        override fun toObject(p: DataProtos.Media): Media =
+                with(p) {
+                    Media(
+                            mimeType = mimeType
+                    )
+                }
     }
 }
 
@@ -414,27 +533,31 @@ data class Message(
         val contactType: String? = null,
         val isStarred: Boolean? = null,
         val isPinned: Boolean? = null
-) : Value("message"), ToProto<DataProtos.Message> {
-    override fun toProto(): DataProtos.Message =
-            DataProtos.Message.newBuilder().apply {
-                number = this@Message.number ?: ""
-                messageClass = this@Message.messageClass ?: ""
-                messageBox = this@Message.messageBox ?: ""
-                contactType = this@Message.contactType ?: ""
-                isStarred = this@Message.isStarred ?: false
-                isPinned = this@Message.isPinned ?: false
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<Message, DataProtos.Message> {
+        override fun toProto(o: Message): DataProtos.Message =
+                with(o) {
+                    DataProtos.Message.newBuilder().apply {
+                        number = this@with.number ?: ""
+                        messageClass = this@with.messageClass ?: ""
+                        messageBox = this@with.messageBox ?: ""
+                        contactType = this@with.contactType ?: ""
+                        isStarred = this@with.isStarred ?: false
+                        isPinned = this@with.isPinned ?: false
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.Message, Message> {
-        override fun toObject(proto: DataProtos.Message): Message =
-                Message(
-                        number = proto.number,
-                        messageClass = proto.messageClass,
-                        messageBox = proto.messageBox,
-                        contactType = proto.contactType,
-                        isStarred = proto.isStarred,
-                        isPinned = proto.isPinned
-                )
+        override fun toObject(p: DataProtos.Message): Message =
+                with(p) {
+                    Message(
+                            number = number,
+                            messageClass = messageClass,
+                            messageBox = messageBox,
+                            contactType = contactType,
+                            isStarred = isStarred,
+                            isPinned = isPinned
+                    )
+                }
     }
 }
 
@@ -451,37 +574,41 @@ data class Notification(
         val sound: String? = null,
         val lightColor: String? = null,
         val isPosted: Boolean? = null
-) : Value("notification"), ToProto<DataProtos.Notification> {
-    override fun toProto(): DataProtos.Notification =
-            DataProtos.Notification.newBuilder().apply {
-                name = this@Notification.name ?: ""
-                packageName = this@Notification.packageName ?: ""
-                isSystemApp = this@Notification.isSystemApp ?: false
-                isUpdatedSystemApp = this@Notification.isUpdatedSystemApp ?: false
-                title = this@Notification.title ?: ""
-                visibility = this@Notification.visibility ?: ""
-                category = this@Notification.category ?: ""
-                vibrate = this@Notification.vibrate ?: ""
-                sound = this@Notification.sound ?: ""
-                lightColor = this@Notification.lightColor ?: ""
-                isPosted = this@Notification.isPosted ?: false
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<Notification, DataProtos.Notification> {
+        override fun toProto(o: Notification): DataProtos.Notification =
+                with(o) {
+                    DataProtos.Notification.newBuilder().apply {
+                        name = this@with.name ?: ""
+                        packageName = this@with.packageName ?: ""
+                        isSystemApp = this@with.isSystemApp ?: false
+                        isUpdatedSystemApp = this@with.isUpdatedSystemApp ?: false
+                        title = this@with.title ?: ""
+                        visibility = this@with.visibility ?: ""
+                        category = this@with.category ?: ""
+                        vibrate = this@with.vibrate ?: ""
+                        sound = this@with.sound ?: ""
+                        lightColor = this@with.lightColor ?: ""
+                        isPosted = this@with.isPosted ?: false
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.Notification, Notification> {
-        override fun toObject(proto: DataProtos.Notification): Notification =
-                Notification(
-                        name = proto.name,
-                        packageName = proto.packageName,
-                        isSystemApp = proto.isSystemApp,
-                        isUpdatedSystemApp = proto.isUpdatedSystemApp,
-                        title = proto.title,
-                        visibility = proto.visibility,
-                        category = proto.category,
-                        vibrate = proto.vibrate,
-                        sound = proto.sound,
-                        lightColor = proto.lightColor,
-                        isPosted = proto.isPosted
-                )
+        override fun toObject(p: DataProtos.Notification): Notification =
+                with(p) {
+                    Notification(
+                            name = name,
+                            packageName = packageName,
+                            isSystemApp = isSystemApp,
+                            isUpdatedSystemApp = isUpdatedSystemApp,
+                            title = title,
+                            visibility = visibility,
+                            category = category,
+                            vibrate = vibrate,
+                            sound = sound,
+                            lightColor = lightColor,
+                            isPosted = isPosted
+                    )
+                }
     }
 }
 
@@ -490,24 +617,28 @@ data class PhysicalStat(
         val type: String? = null,
         val startTime: Long? = null,
         val endTime: Long? = null,
-        val value: Float? = null
-) : Value("physical_stat"), ToProto<DataProtos.PhysicalStat> {
-    override fun toProto(): DataProtos.PhysicalStat =
-            DataProtos.PhysicalStat.newBuilder().apply {
-                type = this@PhysicalStat.type ?: ""
-                startTime = this@PhysicalStat.startTime ?: Long.MIN_VALUE
-                endTime = this@PhysicalStat.endTime ?: Long.MIN_VALUE
-                value = this@PhysicalStat.value ?: Float.NaN
-            }.build()
+        val value: String? = null
+) : Value() {
+    companion object : ProtoSerializer<PhysicalStat, DataProtos.PhysicalStat> {
+        override fun toProto(o: PhysicalStat): DataProtos.PhysicalStat =
+                with(o) {
+                    DataProtos.PhysicalStat.newBuilder().apply {
+                        type = this@with.type ?: ""
+                        startTime = this@with.startTime ?: Long.MIN_VALUE
+                        endTime = this@with.endTime ?: Long.MIN_VALUE
+                        value = this@with.value ?: ""
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.PhysicalStat, PhysicalStat> {
-        override fun toObject(proto: DataProtos.PhysicalStat): PhysicalStat =
-                PhysicalStat(
-                        type = proto.type,
-                        startTime = proto.startTime,
-                        endTime = proto.endTime,
-                        value = proto.value
-                )
+        override fun toObject(p: DataProtos.PhysicalStat): PhysicalStat =
+                with(p) {
+                    PhysicalStat(
+                            type = type,
+                            startTime = startTime,
+                            endTime = endTime,
+                            value = value
+                    )
+                }
     }
 }
 
@@ -521,48 +652,53 @@ data class Survey(
         val deliveredTime: Long? = null,
         val reactionTime: Long? = null,
         val responseTime: Long? = null,
-        val items: List<Item> = emptyList()
-) : Value("survey"), ToProto<DataProtos.Survey> {
+        val item: List<Item> = emptyList()
+) : Value() {
     @Serializable
     data class Item(
             val question: String? = null,
             val response: String? = null
     )
 
-    override fun toProto(): DataProtos.Survey =
-            DataProtos.Survey.newBuilder().apply {
-                title = this@Survey.title ?: ""
-                message = this@Survey.message ?: ""
-                timeoutPolicy = this@Survey.timeoutPolicy ?: ""
-                timeoutSec = this@Survey.timeoutSec ?: Long.MIN_VALUE
-                deliveredTime = this@Survey.deliveredTime ?: Long.MIN_VALUE
-                reactionTime = this@Survey.reactionTime ?: Long.MIN_VALUE
-                responseTime = this@Survey.responseTime ?: Long.MIN_VALUE
-                addAllItems(this@Survey.items.map {
-                    DataProtos.Survey.Item.newBuilder().apply {
-                        question = it.question
-                        response = it.response
+    companion object : ProtoSerializer<Survey, DataProtos.Survey> {
+        override fun toProto(o: Survey): DataProtos.Survey =
+                with(o) {
+                    DataProtos.Survey.newBuilder().apply {
+                        title = this@with.title ?: ""
+                        message = this@with.message ?: ""
+                        timeoutPolicy = this@with.timeoutPolicy ?: ""
+                        timeoutSec = this@with.timeoutSec ?: Long.MIN_VALUE
+                        deliveredTime = this@with.deliveredTime ?: Long.MIN_VALUE
+                        reactionTime = this@with.reactionTime ?: Long.MIN_VALUE
+                        responseTime = this@with.responseTime ?: Long.MIN_VALUE
+                        addAllItem(this@with.item.map {
+                            DataProtos.Survey.Item.newBuilder().apply {
+                                question = it.question
+                                response = it.response
+                            }.build()
+                        })
                     }.build()
-                })
-            }.build()
 
-    companion object : ToObject<DataProtos.Survey, Survey> {
-        override fun toObject(proto: DataProtos.Survey): Survey =
-                Survey(
-                        title = proto.title,
-                        message = proto.message,
-                        timeoutPolicy = proto.timeoutPolicy,
-                        timeoutSec = proto.timeoutSec,
-                        deliveredTime = proto.deliveredTime,
-                        reactionTime = proto.reactionTime,
-                        responseTime = proto.responseTime,
-                        items = proto.itemsList.map {
-                            Item(
-                                    question = it.question,
-                                    response = it.response
-                            )
-                        }
-                )
+                }
+
+        override fun toObject(p: DataProtos.Survey): Survey =
+                with(p) {
+                    Survey(
+                            title = title,
+                            message = message,
+                            timeoutPolicy = timeoutPolicy,
+                            timeoutSec = timeoutSec,
+                            deliveredTime = deliveredTime,
+                            reactionTime = reactionTime,
+                            responseTime = responseTime,
+                            item = itemList.map {
+                                Item(
+                                        question = it.question,
+                                        response = it.response
+                                )
+                            }
+                    )
+                }
     }
 }
 
@@ -574,27 +710,31 @@ data class DataTraffic(
         val txBytes: Long? = null,
         val mobileRxBytes: Long? = null,
         val mobileTxBytes: Long? = null
-) : Value("data_traffic"), ToProto<DataProtos.DataTraffic> {
-    override fun toProto(): DataProtos.DataTraffic =
-            DataProtos.DataTraffic.newBuilder().apply {
-                fromTime = this@DataTraffic.fromTime ?: Long.MIN_VALUE
-                toTime = this@DataTraffic.toTime ?: Long.MIN_VALUE
-                rxBytes = this@DataTraffic.rxBytes ?: Long.MIN_VALUE
-                txBytes = this@DataTraffic.txBytes ?: Long.MIN_VALUE
-                mobileRxBytes = this@DataTraffic.mobileRxBytes ?: Long.MIN_VALUE
-                mobileTxBytes = this@DataTraffic.mobileTxBytes ?: Long.MIN_VALUE
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<DataTraffic, DataProtos.DataTraffic> {
+        override fun toProto(o: DataTraffic): DataProtos.DataTraffic =
+                with(o) {
+                    DataProtos.DataTraffic.newBuilder().apply {
+                        fromTime = this@with.fromTime ?: Long.MIN_VALUE
+                        toTime = this@with.toTime ?: Long.MIN_VALUE
+                        rxBytes = this@with.rxBytes ?: Long.MIN_VALUE
+                        txBytes = this@with.txBytes ?: Long.MIN_VALUE
+                        mobileRxBytes = this@with.mobileRxBytes ?: Long.MIN_VALUE
+                        mobileTxBytes = this@with.mobileTxBytes ?: Long.MIN_VALUE
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.DataTraffic, DataTraffic> {
-        override fun toObject(proto: DataProtos.DataTraffic): DataTraffic =
-                DataTraffic(
-                        fromTime = proto.fromTime,
-                        toTime = proto.toTime,
-                        rxBytes = proto.rxBytes,
-                        txBytes = proto.txBytes,
-                        mobileRxBytes = proto.mobileRxBytes,
-                        mobileTxBytes = proto.mobileTxBytes
-                )
+        override fun toObject(p: DataProtos.DataTraffic): DataTraffic =
+                with(p) {
+                    DataTraffic(
+                            fromTime = fromTime,
+                            toTime = toTime,
+                            rxBytes = rxBytes,
+                            txBytes = txBytes,
+                            mobileRxBytes = mobileRxBytes,
+                            mobileTxBytes = mobileTxBytes
+                    )
+                }
     }
 }
 
@@ -604,22 +744,26 @@ data class Wifi(
         val ssid: String? = null,
         val frequency: Int? = null,
         val rssi: Int? = null
-) : Value("wifi"), ToProto<DataProtos.Wifi> {
-    override fun toProto(): DataProtos.Wifi =
-            DataProtos.Wifi.newBuilder().apply {
-                bssid = this@Wifi.bssid ?: ""
-                ssid = this@Wifi.ssid ?: ""
-                frequency = this@Wifi.frequency ?: Int.MIN_VALUE
-                rssi = this@Wifi.rssi ?: Int.MIN_VALUE
-            }.build()
+) : Value() {
+    companion object : ProtoSerializer<Wifi, DataProtos.Wifi> {
+        override fun toProto(o: Wifi): DataProtos.Wifi =
+                with(o) {
+                    DataProtos.Wifi.newBuilder().apply {
+                        bssid = this@with.bssid ?: ""
+                        ssid = this@with.ssid ?: ""
+                        frequency = this@with.frequency ?: Int.MIN_VALUE
+                        rssi = this@with.rssi ?: Int.MIN_VALUE
+                    }.build()
+                }
 
-    companion object : ToObject<DataProtos.Wifi, Wifi> {
-        override fun toObject(proto: DataProtos.Wifi): Wifi =
-                Wifi(
-                        bssid = proto.bssid,
-                        ssid = proto.ssid,
-                        frequency = proto.frequency,
-                        rssi = proto.rssi
-                )
+        override fun toObject(p: DataProtos.Wifi): Wifi =
+                with(p) {
+                    Wifi(
+                            bssid = bssid,
+                            ssid = ssid,
+                            frequency = frequency,
+                            rssi = rssi
+                    )
+                }
     }
 }
