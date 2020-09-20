@@ -50,4 +50,5 @@ fun main() {
             recipients = errorRecipients,
             logPath = logPath
     )
+    app.await()
 }
