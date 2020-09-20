@@ -86,24 +86,7 @@ class TestHeartBeatsConsistency : StringSpec() {
             expectedSize shouldBe realSize
         }
 
-        "create heart beats" {
-            val data = TIME_RANGE.map { timestamp ->
-                buildHeartBeat(
-                        timestamp = timestamp,
-                        email = "CREATE_HEART_BEATS",
-                        deviceInfo = "DEVICE_INFO_1",
-                        deviceId = "DEVICE_ID_1"
-                )
-            }.chunked(200)
 
-            data.map {
-                stub.createHeartBeats(
-                        QueryProtos.Bulk.HeartBeats.newBuilder().addAllHeartbeat(it).build()
-                )
-            }.size shouldBe data.size
-
-            delay(20 * 1000)
-        }
 
         "check data length for create heart beats" {
             val expectedSize = END_TIME - START_TIME
@@ -124,20 +107,6 @@ class TestHeartBeatsConsistency : StringSpec() {
             realSize shouldBe expectedSize
         }
 
-        "create heart beats as stream" {
-            val data = TIME_RANGE.map { timestamp ->
-                buildHeartBeat(
-                        timestamp = timestamp,
-                        email = "CREATE_HEART_BEATS_AS_STREAM",
-                        deviceInfo = "DEVICE_INFO_1",
-                        deviceId = "DEVICE_ID_1"
-                )
-            }.asFlow()
-
-            stub.createHeartBeatsAsStream(data) shouldBe CommonProtos.Empty.getDefaultInstance()
-
-            delay(10 * 2000)
-        }
 
         "check data length for create heart beats as stream" {
             val expectedSize = END_TIME - START_TIME
@@ -163,7 +132,7 @@ class TestHeartBeatsConsistency : StringSpec() {
                     QueryProtos.Query.HeartBeats.newBuilder()
                             .setDataType(CommonProtos.DataType.MESSAGE)
                             .build()
-            ).heartbeatList
+            ).heartBeatList
             heartBeat.all { it.statusList.size == 1 } shouldBe true
             heartBeat.all { it.statusList.first().dataType == CommonProtos.DataType.MESSAGE } shouldBe true
         }

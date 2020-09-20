@@ -9,6 +9,7 @@ import kaist.iclab.abclogger.db.DatabaseWriter
 import kaist.iclab.abclogger.schema.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
 import org.litote.kmongo.div
 import org.litote.kmongo.index
 import org.litote.kmongo.serialization.registerModule
@@ -17,61 +18,63 @@ class App {
     private lateinit var server: Server
 
     fun start(
-            portNumber: Int,
-            dbServerName: String,
-            dbPortNumber: Int,
-            dbName: String,
-            dbRootUserName: String,
-            dbRootPassword: String,
-            dbWriterUserName: String,
-            dbWriterUserPassword: String,
-            adminEmail: String,
-            adminPassword: String,
-            recipients: List<String>,
-            logPath: String
+        portNumber: Int,
+        dbServerName: String,
+        dbPortNumber: Int,
+        dbName: String,
+        dbRootUserName: String,
+        dbRootPassword: String,
+        dbWriterUserName: String,
+        dbWriterUserPassword: String,
+        adminEmail: String,
+        adminPassword: String,
+        recipients: List<String>,
+        logPath: String
     ) {
         try {
             Log.enableFileAppender(logPath)
 
             Log.enableGMailAppender(
-                    email = adminEmail,
-                    password = adminPassword,
-                    recipients = recipients
+                email = adminEmail,
+                password = adminPassword,
+                recipients = recipients
             )
 
             val serialModule = SerializersModule {
-                polymorphic<Value> {
-                    PhysicalActivityTransition::class with PhysicalActivityTransition.serializer()
-                    PhysicalActivity::class with PhysicalActivity.serializer()
-                    AppUsageEvent::class with AppUsageEvent.serializer()
-                    Battery::class with Battery.serializer()
-                    Bluetooth::class with Bluetooth.serializer()
-                    CallLog::class with CallLog.serializer()
-                    DeviceEvent::class with DeviceEvent.serializer()
-                    Sensor::class with Sensor.serializer()
-                    InstalledApp::class with InstalledApp.serializer()
-                    KeyLog::class with KeyLog.serializer()
-                    Location::class with Location.serializer()
-                    Media::class with Media.serializer()
-                    Message::class with Message.serializer()
-                    Notification::class with Notification.serializer()
-                    PhysicalStat::class with PhysicalStat.serializer()
-                    Survey::class with Survey.serializer()
-                    DataTraffic::class with DataTraffic.serializer()
-                    Wifi::class with Wifi.serializer()
+                polymorphic(Value::class, Value.serializer()) {
+                    subclass(PhysicalActivity::class, PhysicalActivity.serializer())
+                    subclass(PhysicalActivityTransition::class, PhysicalActivityTransition.serializer())
+                    subclass(PhysicalActivity::class, PhysicalActivity.serializer())
+                    subclass(AppUsageEvent::class, AppUsageEvent.serializer())
+                    subclass(Battery::class, Battery.serializer())
+                    subclass(Bluetooth::class, Bluetooth.serializer())
+                    subclass(CallLog::class, CallLog.serializer())
+                    subclass(DeviceEvent::class, DeviceEvent.serializer())
+                    subclass(EmbeddedSensor::class, EmbeddedSensor.serializer())
+                    subclass(ExternalSensor::class, ExternalSensor.serializer())
+                    subclass(InstalledApp::class, InstalledApp.serializer())
+                    subclass(KeyLog::class, KeyLog.serializer())
+                    subclass(Location::class, Location.serializer())
+                    subclass(Media::class, Media.serializer())
+                    subclass(Message::class, Message.serializer())
+                    subclass(Notification::class, Notification.serializer())
+                    subclass(PhysicalStat::class, PhysicalStat.serializer())
+                    subclass(Survey::class, Survey.serializer())
+                    subclass(DataTraffic::class, DataTraffic.serializer())
+                    subclass(Wifi::class, Wifi.serializer())
                 }
             }
 
             registerModule(serialModule)
 
             val database = Database(
-                    serverName = dbServerName,
-                    portNumber = dbPortNumber,
-                    dbName = dbName,
-                    rootUserName = dbRootUserName,
-                    rootPassword = dbRootPassword,
-                    writerUserName = dbWriterUserName,
-                    writerUserPassword = dbWriterUserPassword
+                serverName = dbServerName,
+                portNumber = dbPortNumber,
+                dbName = dbName,
+                rootUserName = dbRootUserName,
+                rootPassword = dbRootPassword,
+                writerUserName = dbWriterUserName,
+                writerUserPassword = dbWriterUserPassword
             )
 
             runBlocking {
@@ -88,54 +91,54 @@ class App {
                  */
                 with(database.collection<Datum>()) {
                     ensureIndex(
-                            index(
-                                    Datum::timestamp to true,
-                                    Datum::dataType to true,
-                                    Datum::email to true,
-                                    Datum::deviceId to true
-                            )
+                        index(
+                            Datum::timestamp to true,
+                            Datum::dataType to true,
+                            Datum::email to true,
+                            Datum::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    Datum::timestamp to true,
-                                    Datum::dataType to true,
-                                    Datum::email to true,
-                                    Datum::deviceInfo to true,
-                                    Datum::deviceId to true
-                            )
+                        index(
+                            Datum::timestamp to true,
+                            Datum::dataType to true,
+                            Datum::email to true,
+                            Datum::deviceInfo to true,
+                            Datum::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    Datum::timestamp to true,
-                                    Datum::email to true,
-                                    Datum::deviceId to true
-                            )
+                        index(
+                            Datum::timestamp to true,
+                            Datum::email to true,
+                            Datum::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    Datum::timestamp to true,
-                                    Datum::email to true,
-                                    Datum::deviceInfo to true,
-                                    Datum::deviceId to true
-                            )
+                        index(
+                            Datum::timestamp to true,
+                            Datum::email to true,
+                            Datum::deviceInfo to true,
+                            Datum::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    Datum::timestamp to true,
-                                    Datum::deviceId to true
-                            )
+                        index(
+                            Datum::timestamp to true,
+                            Datum::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    Datum::timestamp to true,
-                                    Datum::deviceInfo to true,
-                                    Datum::deviceId to true
-                            )
+                        index(
+                            Datum::timestamp to true,
+                            Datum::deviceInfo to true,
+                            Datum::deviceId to true
+                        )
                     )
                 }
 
@@ -151,54 +154,54 @@ class App {
                  */
                 with(database.collection<HeartBeat>()) {
                     ensureIndex(
-                            index(
-                                    HeartBeat::timestamp to true,
-                                    HeartBeat::status / Status::dataType to true,
-                                    HeartBeat::email to true,
-                                    HeartBeat::deviceId to true
-                            )
+                        index(
+                            HeartBeat::timestamp to true,
+                            HeartBeat::status / Status::dataType to true,
+                            HeartBeat::email to true,
+                            HeartBeat::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    HeartBeat::timestamp to true,
-                                    HeartBeat::status / Status::dataType to true,
-                                    HeartBeat::email to true,
-                                    HeartBeat::deviceInfo to true,
-                                    HeartBeat::deviceId to true
-                            )
+                        index(
+                            HeartBeat::timestamp to true,
+                            HeartBeat::status / Status::dataType to true,
+                            HeartBeat::email to true,
+                            HeartBeat::deviceInfo to true,
+                            HeartBeat::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    HeartBeat::timestamp to true,
-                                    HeartBeat::email to true,
-                                    HeartBeat::deviceId to true
-                            )
+                        index(
+                            HeartBeat::timestamp to true,
+                            HeartBeat::email to true,
+                            HeartBeat::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    HeartBeat::timestamp to true,
-                                    HeartBeat::email to true,
-                                    HeartBeat::deviceInfo to true,
-                                    HeartBeat::deviceId to true
-                            )
+                        index(
+                            HeartBeat::timestamp to true,
+                            HeartBeat::email to true,
+                            HeartBeat::deviceInfo to true,
+                            HeartBeat::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    HeartBeat::timestamp to true,
-                                    HeartBeat::deviceId to true
-                            )
+                        index(
+                            HeartBeat::timestamp to true,
+                            HeartBeat::deviceId to true
+                        )
                     )
 
                     ensureIndex(
-                            index(
-                                    HeartBeat::timestamp to true,
-                                    HeartBeat::deviceInfo to true,
-                                    HeartBeat::deviceId to true
-                            )
+                        index(
+                            HeartBeat::timestamp to true,
+                            HeartBeat::deviceInfo to true,
+                            HeartBeat::deviceId to true
+                        )
                     )
                 }
             }
@@ -213,11 +216,11 @@ class App {
             server.start()
 
             Runtime.getRuntime().addShutdownHook(
-                    Thread {
-                        Log.info("JVM is shutting down, so a server will be also shutting down.")
-                        server.shutdown()
-                        Log.info("A server shuts down.")
-                    }
+                Thread {
+                    Log.info("JVM is shutting down, so a server will be also shutting down.")
+                    server.shutdown()
+                    Log.info("A server shuts down.")
+                }
             )
 
             Log.info("A server is started..")

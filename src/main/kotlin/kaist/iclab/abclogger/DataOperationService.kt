@@ -39,16 +39,6 @@ class DataOperationService(private val reader: DatabaseReader, private val write
         CommonProtos.Empty.getDefaultInstance()
     }
 
-    override suspend fun createHeartBeats(request: QueryProtos.Bulk.HeartBeats): CommonProtos.Empty = log("createHeartBeats($request)") {
-        request.heartbeatList.forEach { writer.write(it) }
-        CommonProtos.Empty.getDefaultInstance()
-    }
-
-    override suspend fun createHeartBeatsAsStream(requests: Flow<HeartBeatProtos.HeartBeat>): CommonProtos.Empty = suspendLog("createHeartBeatsAsStream($requests)") {
-        requests.collect { writer.write(it) }
-        CommonProtos.Empty.getDefaultInstance()
-    }
-
     override suspend fun readData(request: QueryProtos.Query.Data): QueryProtos.Bulk.Data = suspendLog("readData($request)") {
         val publisher = reader.readData(
                 fromTimestamp = request.fromTimestamp,
@@ -107,7 +97,7 @@ class DataOperationService(private val reader: DatabaseReader, private val write
         val responses = publisher.toList().map { HeartBeat.toProto(it) }
 
         QueryProtos.Bulk.HeartBeats.newBuilder().apply {
-            addAllHeartbeat(responses)
+            addAllHeartBeat(responses)
         }.build()
     }
 

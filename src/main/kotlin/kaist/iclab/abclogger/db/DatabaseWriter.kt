@@ -1,7 +1,6 @@
 package kaist.iclab.abclogger.db
 
 import io.reactivex.rxjava3.core.BackpressureStrategy
-import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import io.reactivex.rxjava3.subjects.PublishSubject
 import io.reactivex.rxjava3.subjects.Subject
@@ -13,16 +12,10 @@ import kaist.iclab.abclogger.schema.Datum
 import kaist.iclab.abclogger.schema.HeartBeat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asContextElement
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactive.asFlow
-import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.coroutines.CoroutineContext
 
 class DatabaseWriter(private val database: Database) {
     private val dataBuffer: Subject<DataProtos.Datum> = PublishSubject.create()
@@ -43,9 +36,9 @@ class DatabaseWriter(private val database: Database) {
                     val obj = Datum.toObject(proto)
 
                     obj.copy(
-                            offsetDateTime = getOffsetDateTime(obj.timestamp ?: currentTime, obj.utcOffsetSec),
+                            offsetTimestamp = getOffsetDateTime(obj.timestamp ?: currentTime, obj.utcOffsetSec),
                             uploadTime = currentTime,
-                            offsetUploadDateTime = getOffsetDateTime(currentTime)
+                            offsetUploadTime = getOffsetDateTime(currentTime)
                     )
                 }
                 if (objects.isNotEmpty()) {
@@ -67,9 +60,9 @@ class DatabaseWriter(private val database: Database) {
                     val obj = HeartBeat.toObject(proto)
 
                     obj.copy(
-                            offsetDateTime = getOffsetDateTime(obj.timestamp ?: currentTime, obj.utcOffsetSec),
+                            offsetTimestamp = getOffsetDateTime(obj.timestamp ?: currentTime, obj.utcOffsetSec),
                             uploadTime = currentTime,
-                            offsetUploadDateTime = getOffsetDateTime(currentTime)
+                            offsetUploadTime = getOffsetDateTime(currentTime)
                     )
                 }
                 if (objects.isNotEmpty()) {

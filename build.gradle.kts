@@ -5,16 +5,16 @@ plugins {
     java
     idea
     application
-    kotlin("jvm") version "1.4.0"
-    kotlin("kapt") version "1.4.0"
-    kotlin("plugin.serialization") version "1.4.0"
-    id("com.google.protobuf") version "0.8.12"
+    kotlin("jvm") version "1.4.10"
+    kotlin("kapt") version "1.4.10"
+    kotlin("plugin.serialization") version "1.4.10"
+    id("com.google.protobuf") version "0.8.13"
 }
 
 application {
     mainClassName = "kaist.iclab.abclogger.MainKt"
     group = "kaist.iclab.abclogger"
-    version = "0.9.4"
+    version = "0.9.5"
 }
 
 
@@ -39,24 +39,24 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.72")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.4.10")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.0.0-RC")
     implementation("javax.annotation:javax.annotation-api:1.3.2")
 
     /**
      * gRPC
      */
-    implementation("io.grpc:grpc-protobuf:1.30.2")
-    implementation("io.grpc:grpc-stub:1.30.2")
-    implementation("io.grpc:grpc-kotlin-stub:0.1.4")
-    runtimeOnly("io.grpc:grpc-netty-shaded:1.30.2")
+    implementation("io.grpc:grpc-protobuf:1.32.1")
+    implementation("io.grpc:grpc-stub:1.32.1")
+    implementation("io.grpc:grpc-kotlin-stub:0.1.5")
+    runtimeOnly("io.grpc:grpc-netty-shaded:1.32.1")
 
     /**
      *
      * MongoDb Driver and Toolkit (KMongo)
      */
-    implementation("org.litote.kmongo:kmongo:4.0.3")
-    implementation("org.litote.kmongo:kmongo-coroutine-serialization:4.0.3")
+    implementation("org.litote.kmongo:kmongo:4.1.2")
+    implementation("org.litote.kmongo:kmongo-coroutine-serialization:4.1.2")
 
     /**
      * Mail
@@ -104,15 +104,15 @@ shadowJar.destinationDirectory.set(file("jars"))
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:3.12.3"
+        artifact = "com.google.protobuf:protoc:3.13.0"
     }
 
     plugins {
         id("grpc") {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.30.2"
+            artifact = "io.grpc:protoc-gen-grpc-java:1.32.1"
         }
         id("grpckt") {
-            artifact = "io.grpc:protoc-gen-grpc-kotlin:0.1.4"
+            artifact = "io.grpc:protoc-gen-grpc-kotlin:0.1.5"
         }
     }
     generateProtoTasks {

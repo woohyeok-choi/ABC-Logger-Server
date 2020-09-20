@@ -7,6 +7,9 @@ import com.google.protobuf.Message
 import kaist.iclab.abclogger.grpc.proto.CommonProtos
 import kaist.iclab.abclogger.grpc.proto.DataProtos
 import kaist.iclab.abclogger.grpc.proto.HeartBeatProtos
+import kaist.iclab.abclogger.schema.UNKNOWN_BOOLEAN
+import kaist.iclab.abclogger.schema.UNKNOWN_LONG
+import kaist.iclab.abclogger.schema.UNKNOWN_STRING
 import java.time.OffsetDateTime
 
 fun buildDatum(
@@ -24,7 +27,8 @@ fun buildDatum(
         CommonProtos.DataType.BLUETOOTH -> DataProtos.Datum.BLUETOOTH_FIELD_NUMBER
         CommonProtos.DataType.CALL_LOG -> DataProtos.Datum.CALL_LOG_FIELD_NUMBER
         CommonProtos.DataType.DEVICE_EVENT -> DataProtos.Datum.DEVICE_EVENT_FIELD_NUMBER
-        CommonProtos.DataType.SENSOR -> DataProtos.Datum.SENSOR_FIELD_NUMBER
+        CommonProtos.DataType.EMBEDDED_SENSOR -> DataProtos.Datum.EMBEDDED_SENSOR_FIELD_NUMBER
+        CommonProtos.DataType.EXTERNAL_SENSOR -> DataProtos.Datum.EXTERNAL_SENSOR_FIELD_NUMBER
         CommonProtos.DataType.INSTALLED_APP -> DataProtos.Datum.INSTALLED_APP_FIELD_NUMBER
         CommonProtos.DataType.KEY_LOG -> DataProtos.Datum.KEY_LOG_FIELD_NUMBER
         CommonProtos.DataType.LOCATION -> DataProtos.Datum.LOCATION_FIELD_NUMBER
@@ -67,8 +71,10 @@ private fun getDefaultDatumInstance(dataType: CommonProtos.DataType) = when (dat
         DataProtos.CallLog.getDefaultInstance()
     CommonProtos.DataType.DEVICE_EVENT ->
         DataProtos.DeviceEvent.getDefaultInstance()
-    CommonProtos.DataType.SENSOR ->
-        DataProtos.Sensor.getDefaultInstance()
+    CommonProtos.DataType.EMBEDDED_SENSOR ->
+        DataProtos.EmbeddedSensor.getDefaultInstance()
+    CommonProtos.DataType.EXTERNAL_SENSOR ->
+        DataProtos.ExternalSensor.getDefaultInstance()
     CommonProtos.DataType.INSTALLED_APP ->
         DataProtos.InstalledApp.getDefaultInstance()
     CommonProtos.DataType.KEY_LOG ->
@@ -111,9 +117,7 @@ fun buildHeartBeat(
             HeartBeatProtos.Status.newBuilder().apply {
                 this.dataType = dataType
                 this.lastTimeWritten = timestamp
-                this.nData = 100
-                this.hasStarted = true
-                this.description = "TEST_STRING"
+                this.recordsRemained = 100
             }.build()
         })
     }.build()
