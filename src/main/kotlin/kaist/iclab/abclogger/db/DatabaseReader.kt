@@ -1,6 +1,5 @@
 package kaist.iclab.abclogger.db
 
-import com.mongodb.client.model.Aggregates
 import kaist.iclab.abclogger.common.Log
 import kaist.iclab.abclogger.common.aggregate
 import kaist.iclab.abclogger.schema.*

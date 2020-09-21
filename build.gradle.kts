@@ -77,12 +77,9 @@ dependencies {
     /**
      * Test
      */
-    testImplementation("io.kotest:kotest-runner-junit5-jvm:4.1.2") // for kotest framework
-    testImplementation("io.kotest:kotest-assertions-core-jvm:4.1.2") // for kotest core jvm assertions
-    testImplementation("io.kotest:kotest-property-jvm:4.1.2") // for kotest property test
-    testImplementation("io.kotest:kotest-runner-console-jvm:4.1.2")
-    testImplementation("junit:junit:4.12")
-
+    testImplementation("io.kotest:kotest-runner-junit5:4.2.5") // for kotest framework
+    testImplementation("io.kotest:kotest-assertions-core:4.2.5") // for kotest core jvm assertions
+    testImplementation("io.kotest:kotest-property:4.2.5") // for kotest property test
 }
 
 java {

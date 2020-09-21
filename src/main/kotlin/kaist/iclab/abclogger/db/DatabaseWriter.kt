@@ -12,66 +12,75 @@ import kaist.iclab.abclogger.schema.Datum
 import kaist.iclab.abclogger.schema.HeartBeat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactive.asFlow
 import java.util.concurrent.TimeUnit
 
 class DatabaseWriter(private val database: Database) {
     private val dataBuffer: Subject<DataProtos.Datum> = PublishSubject.create()
     private val heartBeatBuffer: Subject<HeartBeatProtos.HeartBeat> = PublishSubject.create()
-    private val io = Schedulers.io()
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private val dataFlow = dataBuffer.buffer(
+        5, TimeUnit.SECONDS
+    ).toFlowable(
+        BackpressureStrategy.BUFFER
+    ).asFlow()
+
+    private val heartBeatFlow = heartBeatBuffer.buffer(
+        10, TimeUnit.SECONDS
+    ).toFlowable(
+        BackpressureStrategy.BUFFER
+    ).asFlow()
 
     init {
-        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            dataFlow.collect { protoBuffers ->
+                try {
+                    val currentTime = System.currentTimeMillis()
+                    val objects = protoBuffers.map { proto ->
+                        val obj = Datum.toObject(proto)
 
-        dataBuffer.buffer(
-                5, TimeUnit.SECONDS
-        ).toFlowable(
-                BackpressureStrategy.BUFFER
-        ).asFlow().onEach { protoBuffers ->
-            try {
-                val currentTime = System.currentTimeMillis()
-                val objects = protoBuffers.map { proto ->
-                    val obj = Datum.toObject(proto)
-
-                    obj.copy(
+                        obj.copy(
                             offsetTimestamp = getOffsetDateTime(obj.timestamp ?: currentTime, obj.utcOffsetSec),
                             uploadTime = currentTime,
                             offsetUploadTime = getOffsetDateTime(currentTime)
-                    )
+                        )
+                    }
+                    if (objects.isNotEmpty()) {
+                        database.collection<Datum>().insertMany(objects)
+                    }
+                } catch (e: Exception) {
+                    Log.error("DatabaseWriter.write() - Datum", e)
                 }
-                if (objects.isNotEmpty()) {
-                    database.collection<Datum>().insertMany(objects)
-                }
-            } catch (e: Exception) {
-                Log.error("DatabaseWriter.write() - Datum", e)
             }
-        }.launchIn(scope)
+        }
 
-        heartBeatBuffer.buffer(
-                10, TimeUnit.SECONDS
-        ).toFlowable(
-                BackpressureStrategy.BUFFER
-        ).asFlow().onEach { protoBuffers ->
-            try {
-                val currentTime = System.currentTimeMillis()
-                val objects = protoBuffers.map { proto ->
-                    val obj = HeartBeat.toObject(proto)
+        scope.launch {
+            heartBeatFlow.collect { protoBuffers ->
+                try {
+                    val currentTime = System.currentTimeMillis()
+                    val objects = protoBuffers.map { proto ->
+                        val obj = HeartBeat.toObject(proto)
 
-                    obj.copy(
+                        obj.copy(
                             offsetTimestamp = getOffsetDateTime(obj.timestamp ?: currentTime, obj.utcOffsetSec),
                             uploadTime = currentTime,
                             offsetUploadTime = getOffsetDateTime(currentTime)
-                    )
+                        )
+                    }
+                    if (objects.isNotEmpty()) {
+                        database.collection<HeartBeat>().insertMany(objects)
+                    }
+                } catch (e: Exception) {
+                    Log.error("DatabaseWriter.write() - HeartBeats", e)
                 }
-                if (objects.isNotEmpty()) {
-                    database.collection<HeartBeat>().insertMany(objects)
-                }
-            } catch (e: Exception) {
-                Log.error("DatabaseWriter.write() - HeartBeats", e)
             }
-        }.launchIn(scope)
+        }
     }
 
     fun write(datum: DataProtos.Datum) {

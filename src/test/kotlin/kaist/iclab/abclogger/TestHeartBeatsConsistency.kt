@@ -1,13 +1,13 @@
 package kaist.iclab.abclogger
 
-import io.grpc.ManagedChannel
-import io.grpc.ManagedChannelBuilder
+import io.grpc.*
 import io.kotest.core.spec.Spec
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import kaist.iclab.abclogger.grpc.DataOperationsGrpcKt
 import kaist.iclab.abclogger.grpc.QueryProtos
 import kaist.iclab.abclogger.grpc.proto.CommonProtos
+import kaist.iclab.abclogger.service.AuthInterceptor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asFlow
 
@@ -25,24 +25,26 @@ class TestHeartBeatsConsistency : StringSpec() {
         app = App()
 
         app.start(
-                portNumber = 50051,
-                dbServerName = "localhost",
-                dbPortNumber = 27017,
-                dbName = "data",
-                dbRootPassword = "admin",
-                dbRootUserName = "admin",
-                dbWriterUserName = "abcwriter",
-                dbWriterUserPassword = "abcwriter",
-                adminEmail = "",
-                adminPassword = "",
-                recipients = emptyList(),
-                logPath = "./log.log"
+            portNumber = 50051,
+            dbServerName = "localhost",
+            dbPortNumber = 27017,
+            dbName = "data",
+            dbRootPassword = "admin",
+            dbRootUserName = "admin",
+            dbWriterUserName = "abcwriter",
+            dbWriterUserPassword = "abcwriter",
+            adminEmail = "",
+            adminPassword = "",
+            recipients = emptyList(),
+            logPath = "./log.log",
+            authTokens = listOf("test_key")
         )
 
         channel = ManagedChannelBuilder.forAddress("localhost", 50051)
-                .directExecutor()
-                .usePlaintext()
-                .build()
+            .directExecutor()
+            .intercept(getHeaderClientInterceptor(AuthInterceptor.AUTH_TOKEN, "test_key"))
+            .usePlaintext()
+            .build()
 
         stub = DataOperationsGrpcKt.DataOperationsCoroutineStub(channel)
     }
@@ -56,10 +58,10 @@ class TestHeartBeatsConsistency : StringSpec() {
         "create heart beat" {
             val data = TIME_RANGE.map { timestamp ->
                 buildHeartBeat(
-                        timestamp = timestamp,
-                        email = "CREATE_HEART_BEAT",
-                        deviceInfo = "DEVICE_INFO_1",
-                        deviceId = "DEVICE_ID_1"
+                    timestamp = timestamp,
+                    email = "CREATE_HEART_BEAT",
+                    deviceInfo = "DEVICE_INFO_1",
+                    deviceId = "DEVICE_ID_1"
                 )
             }
             data.map { stub.createHeartBeat(it) }.size shouldBe data.size
@@ -70,7 +72,7 @@ class TestHeartBeatsConsistency : StringSpec() {
         "check data length for create heart beat" {
             val expectedSize = END_TIME - START_TIME
             val realSize = stub.countHeartBeat(
-                    QueryProtos.Query.HeartBeats.newBuilder().setEmail("CREATE_HEART_BEAT").build()
+                QueryProtos.Query.HeartBeats.newBuilder().setEmail("CREATE_HEART_BEAT").build()
             ).value
             expectedSize shouldBe realSize
         }
@@ -78,60 +80,19 @@ class TestHeartBeatsConsistency : StringSpec() {
         "check data length for create heart beat by subset of data" {
             val expectedSize = END_TIME - START_TIME
             val realSize = stub.countHeartBeat(
-                    QueryProtos.Query.HeartBeats.newBuilder()
-                            .setEmail("CREATE_HEART_BEAT")
-                            .setDataType(CommonProtos.DataType.MESSAGE)
-                            .build()
+                QueryProtos.Query.HeartBeats.newBuilder()
+                    .setEmail("CREATE_HEART_BEAT")
+                    .setDataType(CommonProtos.DataType.MESSAGE)
+                    .build()
             ).value
             expectedSize shouldBe realSize
         }
 
-
-
-        "check data length for create heart beats" {
-            val expectedSize = END_TIME - START_TIME
-            val realSize = stub.countHeartBeat(
-                    QueryProtos.Query.HeartBeats.newBuilder().setEmail("CREATE_HEART_BEATS").build()
-            ).value
-            realSize shouldBe expectedSize
-        }
-
-        "check data length for create heart beats by subset of data" {
-            val expectedSize = END_TIME - START_TIME
-            val realSize = stub.countHeartBeat(
-                    QueryProtos.Query.HeartBeats.newBuilder()
-                            .setEmail("CREATE_HEART_BEATS")
-                            .setDataType(CommonProtos.DataType.PHYSICAL_ACTIVITY_TRANSITION)
-                            .build()
-            ).value
-            realSize shouldBe expectedSize
-        }
-
-
-        "check data length for create heart beats as stream" {
-            val expectedSize = END_TIME - START_TIME
-            val realSize = stub.countHeartBeat(
-                    QueryProtos.Query.HeartBeats.newBuilder().setEmail("CREATE_HEART_BEATS_AS_STREAM").build()
-            ).value
-            realSize shouldBe expectedSize
-        }
-
-        "check data length for create heart beats as stream by subset of data" {
-            val expectedSize = END_TIME - START_TIME
-            val realSize = stub.countHeartBeat(
-                    QueryProtos.Query.HeartBeats.newBuilder()
-                            .setEmail("CREATE_HEART_BEATS_AS_STREAM")
-                            .setDataType(CommonProtos.DataType.PHYSICAL_STAT)
-                            .build()
-            ).value
-            realSize shouldBe expectedSize
-        }
-
         "read heart beat by data type" {
             val heartBeat = stub.readHeartBeats(
-                    QueryProtos.Query.HeartBeats.newBuilder()
-                            .setDataType(CommonProtos.DataType.MESSAGE)
-                            .build()
+                QueryProtos.Query.HeartBeats.newBuilder()
+                    .setDataType(CommonProtos.DataType.MESSAGE)
+                    .build()
             ).heartBeatList
             heartBeat.all { it.statusList.size == 1 } shouldBe true
             heartBeat.all { it.statusList.first().dataType == CommonProtos.DataType.MESSAGE } shouldBe true

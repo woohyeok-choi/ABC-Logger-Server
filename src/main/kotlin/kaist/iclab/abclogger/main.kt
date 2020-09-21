@@ -12,6 +12,7 @@ const val KEY_MONGO_WRITE_USER = "MONGO_WRITE_USER"
 const val KEY_MONGO_WRITE_PASSWORD = "MONGO_WRITE_PASSWORD"
 const val KEY_ADMIN_EMAIL = "ADMIN_EMAIL"
 const val KEY_ADMIN_PASSWORD = "ADMIN_PASSWORD"
+const val KEY_AUTH_TOKENS = "AUTH_TOKENS"
 const val KEY_ERROR_RECIPIENTS = "ERROR_RECIPIENTS"
 const val KEY_LOG_PATH = "LOG_PATH"
 
@@ -30,6 +31,7 @@ fun main() {
 
     val adminEmail = System.getenv(KEY_ADMIN_EMAIL) ?: ""
     val adminPassword = System.getenv(KEY_ADMIN_PASSWORD) ?: ""
+    val authTokens = System.getenv(KEY_AUTH_TOKENS)?.split(";") ?: emptyList()
     val errorRecipients = System.getenv(KEY_ERROR_RECIPIENTS)?.split(";") ?: emptyList()
 
     val logPath = System.getenv(KEY_LOG_PATH) ?: "/home/abclogger/logs"
@@ -37,18 +39,19 @@ fun main() {
     val app = App()
 
     app.start(
-            portNumber = portNumber,
-            dbServerName = dbServerName,
-            dbPortNumber = dbPortNumber,
-            dbName = dbName,
-            dbRootUserName = dbUserName,
-            dbRootPassword = dbPassword,
-            dbWriterUserName = dbWriteUserName,
-            dbWriterUserPassword = dbWritePassword,
-            adminEmail = adminEmail,
-            adminPassword = adminPassword,
-            recipients = errorRecipients,
-            logPath = logPath
+        portNumber = portNumber,
+        dbServerName = dbServerName,
+        dbPortNumber = dbPortNumber,
+        dbName = dbName,
+        dbRootUserName = dbUserName,
+        dbRootPassword = dbPassword,
+        dbWriterUserName = dbWriteUserName,
+        dbWriterUserPassword = dbWritePassword,
+        adminEmail = adminEmail,
+        adminPassword = adminPassword,
+        recipients = errorRecipients,
+        logPath = logPath,
+        authTokens = authTokens
     )
     app.await()
 }

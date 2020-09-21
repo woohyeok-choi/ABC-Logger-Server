@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.Descriptors
 import com.google.protobuf.GeneratedMessageV3
 import com.google.protobuf.Message
+import io.grpc.*
 import kaist.iclab.abclogger.grpc.proto.CommonProtos
 import kaist.iclab.abclogger.grpc.proto.DataProtos
 import kaist.iclab.abclogger.grpc.proto.HeartBeatProtos
@@ -145,4 +146,20 @@ private fun <T : GeneratedMessageV3> fillData(message: T): Message {
         }
     }
     return builder.build()
+}
+
+fun getHeaderClientInterceptor(authKey: String, authToken: String) = object : ClientInterceptor {
+    override fun <ReqT : Any?, RespT : Any?> interceptCall(
+        method: MethodDescriptor<ReqT, RespT>?,
+        callOptions: CallOptions?,
+        next: Channel?): ClientCall<ReqT, RespT> {
+        val newCall = next!!.newCall(method, callOptions)
+
+        return object : ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(newCall) {
+            override fun start(responseListener: Listener<RespT>?, headers: Metadata?) {
+                headers?.put(Metadata.Key.of(authKey, Metadata.ASCII_STRING_MARSHALLER), authToken)
+                super.start(responseListener, headers)
+            }
+        }
+    }
 }

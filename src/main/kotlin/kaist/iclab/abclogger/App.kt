@@ -7,6 +7,8 @@ import kaist.iclab.abclogger.db.Database
 import kaist.iclab.abclogger.db.DatabaseReader
 import kaist.iclab.abclogger.db.DatabaseWriter
 import kaist.iclab.abclogger.schema.*
+import kaist.iclab.abclogger.service.DataOperationService
+import kaist.iclab.abclogger.service.AuthInterceptor
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
@@ -28,6 +30,7 @@ class App {
         dbWriterUserPassword: String,
         adminEmail: String,
         adminPassword: String,
+        authTokens: List<String>,
         recipients: List<String>,
         logPath: String
     ) {
@@ -211,7 +214,10 @@ class App {
 
             val service = DataOperationService(reader, writer)
 
-            server = ServerBuilder.forPort(portNumber).addService(service).build()
+            server = ServerBuilder.forPort(portNumber)
+                .addService(service)
+                .intercept(AuthInterceptor(authTokens.toSet()))
+                .build()
 
             server.start()
 
