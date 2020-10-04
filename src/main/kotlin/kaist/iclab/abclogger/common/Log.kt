@@ -28,7 +28,7 @@ object Log {
     }
 
     fun enableFileAppender(basePath: String) {
-        generalLogger.addAppender(DailyRollingFileAppender(layout, basePath, "'.'yyyy-MM-dd"))
+        generalLogger.addAppender(DailyRollingFileAppender(layout, "$basePath.general", "'.'yyyy-MM-dd"))
         errorLogger.addAppender(DailyRollingFileAppender(layout, "$basePath.error", "'.'yyyy-MM-dd"))
         mongoLogger.addAppender(DailyRollingFileAppender(layout, "$basePath.mongo", "'.'yyyy-MM-dd"))
     }

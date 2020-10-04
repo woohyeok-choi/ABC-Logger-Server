@@ -1,6 +1,10 @@
 package kaist.iclab.abclogger
 
-import kaist.iclab.abclogger.schema.Datum
+import kaist.iclab.abclogger.schema.HeartBeat
+import org.litote.kmongo.from
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.declaredMemberProperties
+
 
 const val KEY_PORT_NUMBER = "PORT_NUMBER"
 const val KEY_MONGO_SERVER_NAME = "MONGO_SERVER_NAME"
@@ -35,7 +39,6 @@ fun main() {
     val errorRecipients = System.getenv(KEY_ERROR_RECIPIENTS)?.split(";") ?: emptyList()
 
     val logPath = System.getenv(KEY_LOG_PATH) ?: "/home/abclogger/logs"
-
     val app = App()
 
     app.start(

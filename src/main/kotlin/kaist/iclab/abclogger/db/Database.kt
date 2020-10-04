@@ -5,6 +5,7 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.MongoCommandException
 import com.mongodb.MongoTimeoutException
+import com.mongodb.client.model.IndexOptions
 import com.mongodb.event.CommandFailedEvent
 import com.mongodb.event.CommandListener
 import com.mongodb.event.CommandStartedEvent
@@ -12,6 +13,7 @@ import com.mongodb.event.CommandSucceededEvent
 import kaist.iclab.abclogger.common.Log
 import kaist.iclab.abclogger.schema.Datum
 import org.bson.Document
+import org.bson.conversions.Bson
 import org.litote.kmongo.coroutine.CoroutineClient
 import org.litote.kmongo.coroutine.CoroutineDatabase
 import org.litote.kmongo.coroutine.coroutine
@@ -21,13 +23,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 
 class Database(
-        private val serverName: String,
-        private val portNumber: Int,
-        private val dbName: String,
-        private val rootUserName: String,
-        private val rootPassword: String,
-        private val writerUserName: String = rootUserName,
-        private val writerUserPassword: String = rootPassword
+    private val serverName: String,
+    private val portNumber: Int,
+    private val dbName: String,
+    private val rootUserName: String,
+    private val rootPassword: String,
+    private val writerUserName: String = rootUserName,
+    private val writerUserPassword: String = rootPassword
 ) {
     private var isBound: AtomicBoolean = AtomicBoolean(false)
     private lateinit var client: CoroutineClient
@@ -38,7 +40,7 @@ class Database(
         client.getDatabase(dbName)
     }
 
-    inline fun <reified T: Any> collection() = database.getCollection<T>()
+    inline fun <reified T : Any> collection() = database.getCollection<T>()
 
     suspend fun bind() {
         Log.info("Database.bind() - begin binding.")
@@ -52,10 +54,10 @@ class Database(
             if (!isConnected) throw IllegalStateException("MongoDb server is not instantiated.")
 
             createOrUpdateUser(
-                    client = client,
-                    dbName = dbName,
-                    userName = writerUserName,
-                    password = writerUserPassword
+                client = client,
+                dbName = dbName,
+                userName = writerUserName,
+                password = writerUserPassword
             )
         }
         val setting = MongoClientSettings.builder().apply {
@@ -64,6 +66,7 @@ class Database(
                 override fun commandStarted(event: CommandStartedEvent?) {
                     Log.info(event)
                 }
+
                 override fun commandFailed(event: CommandFailedEvent?) {
                     Log.error(event)
                 }
@@ -85,15 +88,19 @@ class Database(
         Log.info("Database.bind() - complete binding.")
     }
 
+    suspend inline fun <reified T: Any> createIndex(index: Bson) {
+        collection<T>().ensureIndex(index)
+    }
+
     private suspend fun checkConnection(
-            client: CoroutineClient,
-            dbName: String,
-            nTries: Int = 10
+        client: CoroutineClient,
+        dbName: String,
+        nTries: Int = 10
     ): Boolean {
         for (i in (0 until nTries)) {
             try {
                 client.getDatabase(dbName).runCommand<Document>(
-                        """
+                    """
                         {
                             ping: 1
                         }
@@ -108,17 +115,16 @@ class Database(
     }
 
     private suspend fun createOrUpdateUser(
-            client: CoroutineClient,
-            dbName: String,
-            userName: String,
-            password: String
+        client: CoroutineClient,
+        dbName: String,
+        userName: String,
+        password: String
     ) {
-
         val database = client.getDatabase(dbName)
 
         try {
             database.runCommand<Document>(
-                    """
+                """
                     {
                         createUser: "$userName",
                         pwd: "$password",
@@ -136,7 +142,7 @@ class Database(
              * Here, if a user exists, then grant its role.
              */
             database.runCommand<Document>(
-                    """
+                """
                         {
                             grantRolesToUser: "$userName",
                             roles: [

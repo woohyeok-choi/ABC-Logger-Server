@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package kaist.iclab.abclogger
 
 import com.google.protobuf.ByteString
@@ -5,150 +7,278 @@ import com.google.protobuf.Descriptors
 import com.google.protobuf.GeneratedMessageV3
 import com.google.protobuf.Message
 import io.grpc.*
-import kaist.iclab.abclogger.grpc.proto.CommonProtos
-import kaist.iclab.abclogger.grpc.proto.DataProtos
-import kaist.iclab.abclogger.grpc.proto.HeartBeatProtos
-import kaist.iclab.abclogger.schema.UNKNOWN_BOOLEAN
-import kaist.iclab.abclogger.schema.UNKNOWN_LONG
-import kaist.iclab.abclogger.schema.UNKNOWN_STRING
-import java.time.OffsetDateTime
+import io.kotest.core.test.TestContext
+import io.kotest.matchers.Matcher
+import io.kotest.matchers.MatcherResult
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import kaist.iclab.abclogger.grpc.proto.*
+import kaist.iclab.abclogger.grpc.service.ServiceProtos
+import kaist.iclab.abclogger.schema.dataCaseToDataType
+import kotlinx.coroutines.delay
+import java.util.concurrent.TimeUnit
 
-fun buildDatum(
-        dataType: CommonProtos.DataType,
-        timestamp: Long,
-        email: String,
-        deviceInfo: String = email,
-        deviceId: String = email
-): DataProtos.Datum {
-    val datumField = when (dataType) {
-        CommonProtos.DataType.PHYSICAL_ACTIVITY_TRANSITION -> DataProtos.Datum.PHYSICAL_ACTIVITY_TRANSITION_FIELD_NUMBER
-        CommonProtos.DataType.PHYSICAL_ACTIVITY -> DataProtos.Datum.PHYSICAL_ACTIVITY_FIELD_NUMBER
-        CommonProtos.DataType.APP_USAGE_EVENT -> DataProtos.Datum.APP_USAGE_EVENT_FIELD_NUMBER
-        CommonProtos.DataType.BATTERY -> DataProtos.Datum.BATTERY_FIELD_NUMBER
-        CommonProtos.DataType.BLUETOOTH -> DataProtos.Datum.BLUETOOTH_FIELD_NUMBER
-        CommonProtos.DataType.CALL_LOG -> DataProtos.Datum.CALL_LOG_FIELD_NUMBER
-        CommonProtos.DataType.DEVICE_EVENT -> DataProtos.Datum.DEVICE_EVENT_FIELD_NUMBER
-        CommonProtos.DataType.EMBEDDED_SENSOR -> DataProtos.Datum.EMBEDDED_SENSOR_FIELD_NUMBER
-        CommonProtos.DataType.EXTERNAL_SENSOR -> DataProtos.Datum.EXTERNAL_SENSOR_FIELD_NUMBER
-        CommonProtos.DataType.INSTALLED_APP -> DataProtos.Datum.INSTALLED_APP_FIELD_NUMBER
-        CommonProtos.DataType.KEY_LOG -> DataProtos.Datum.KEY_LOG_FIELD_NUMBER
-        CommonProtos.DataType.LOCATION -> DataProtos.Datum.LOCATION_FIELD_NUMBER
-        CommonProtos.DataType.MEDIA -> DataProtos.Datum.MEDIA_FIELD_NUMBER
-        CommonProtos.DataType.MESSAGE -> DataProtos.Datum.MESSAGE_FIELD_NUMBER
-        CommonProtos.DataType.NOTIFICATION -> DataProtos.Datum.NOTIFICATION_FIELD_NUMBER
-        CommonProtos.DataType.PHYSICAL_STAT -> DataProtos.Datum.PHYSICAL_STAT_FIELD_NUMBER
-        CommonProtos.DataType.SURVEY -> DataProtos.Datum.SURVEY_FIELD_NUMBER
-        CommonProtos.DataType.DATA_TRAFFIC -> DataProtos.Datum.DATA_TRAFFIC_FIELD_NUMBER
-        CommonProtos.DataType.WIFI -> DataProtos.Datum.WIFI_FIELD_NUMBER
-        else -> null
-    }?.let {
-        DataProtos.Datum.getDescriptor().findFieldByNumber(it)
+fun app(): App {
+    val app = App()
+
+    app.start(
+        portNumber = 50051,
+        dbServerName = "localhost",
+        dbPortNumber = 27017,
+        dbName = "data",
+        dbRootPassword = "admin",
+        dbRootUserName = "admin",
+        dbWriterUserName = "abcwriter",
+        dbWriterUserPassword = "abcwriter",
+        adminEmail = "",
+        adminPassword = "",
+        recipients = emptyList(),
+        logPath = "./test/log.log",
+        authTokens = emptyList()
+    )
+
+    return app
+}
+
+fun channel()  = ManagedChannelBuilder.forAddress("localhost", 50051)
+    .directExecutor()
+    .usePlaintext()
+    .build()
+
+
+
+fun datum(
+    datumType: DatumProtos.Datum.Type,
+    timestamp: Long,
+    subject: SubjectProtos.Subject,
+) = DatumProtos.Datum.newBuilder().apply {
+    this.timestamp = timestamp
+    this.subject = subject
+
+    when (datumType) {
+        DatumProtos.Datum.Type.PHYSICAL_ACTIVITY_TRANSITION ->
+            this.physicalActivityTransition = DatumProtos.PhysicalActivityTransition.newBuilder().fill()
+        DatumProtos.Datum.Type.PHYSICAL_ACTIVITY ->
+            this.physicalActivity = DatumProtos.PhysicalActivity.newBuilder().fill()
+        DatumProtos.Datum.Type.APP_USAGE_EVENT ->
+            this.appUsageEvent = DatumProtos.AppUsageEvent.newBuilder().fill()
+        DatumProtos.Datum.Type.BATTERY ->
+            this.battery = DatumProtos.Battery.newBuilder().fill()
+        DatumProtos.Datum.Type.BLUETOOTH ->
+            this.bluetooth = DatumProtos.Bluetooth.newBuilder().fill()
+        DatumProtos.Datum.Type.CALL_LOG ->
+            this.callLog = DatumProtos.CallLog.newBuilder().fill()
+        DatumProtos.Datum.Type.DEVICE_EVENT ->
+            this.deviceEvent = DatumProtos.DeviceEvent.newBuilder().fill()
+        DatumProtos.Datum.Type.EMBEDDED_SENSOR ->
+            this.embeddedSensor = DatumProtos.EmbeddedSensor.newBuilder().fill()
+        DatumProtos.Datum.Type.EXTERNAL_SENSOR ->
+            this.externalSensor = DatumProtos.ExternalSensor.newBuilder().fill()
+        DatumProtos.Datum.Type.INSTALLED_APP ->
+            this.installedApp = DatumProtos.InstalledApp.newBuilder().fill()
+        DatumProtos.Datum.Type.KEY_LOG ->
+            this.keyLog = DatumProtos.KeyLog.newBuilder().fill()
+        DatumProtos.Datum.Type.LOCATION ->
+            this.location = DatumProtos.Location.newBuilder().fill()
+        DatumProtos.Datum.Type.MEDIA ->
+            this.media = DatumProtos.Media.newBuilder().fill()
+        DatumProtos.Datum.Type.MESSAGE ->
+            this.message = DatumProtos.Message.newBuilder().fill()
+        DatumProtos.Datum.Type.NOTIFICATION ->
+            this.notification = DatumProtos.Notification.newBuilder().fill()
+        DatumProtos.Datum.Type.FITNESS ->
+            this.fitness = DatumProtos.Fitness.newBuilder().fill()
+        DatumProtos.Datum.Type.SURVEY ->
+            this.survey = DatumProtos.Survey.newBuilder().fill()
+        DatumProtos.Datum.Type.DATA_TRAFFIC ->
+            this.dataTraffic = DatumProtos.DataTraffic.newBuilder().fill()
+        DatumProtos.Datum.Type.WIFI ->
+            this.wifi = DatumProtos.Wifi.newBuilder().fill()
+        else -> {
+        }
     }
-    val datum = getDefaultDatumInstance(dataType)?.let { fillData(it) }
+}.build()
 
-    return DataProtos.Datum.newBuilder().apply {
-        this.timestamp = timestamp
-        this.utcOffsetSec = OffsetDateTime.now().offset.totalSeconds
-        this.email = email
-        this.deviceInfo = deviceInfo
-        this.deviceId = deviceId
 
-        if (datumField != null && datum != null) this.setField(datumField, datum)
-    }.build()
-}
+fun heartBeat(
+    timestamp: Long,
+    subject: SubjectProtos.Subject,
+    dataTypes: Collection<DatumProtos.Datum.Type>
+) = HeartBeatProtos.HeartBeat.newBuilder().apply {
+    this.timestamp = timestamp
+    this.subject = subject
+    this.addAllDataStatus(dataTypes.map { type ->
+        HeartBeatProtos.DataStatus.newBuilder().fill {
+            datumType = type
+        }
+    })
+}.build()
 
-private fun getDefaultDatumInstance(dataType: CommonProtos.DataType) = when (dataType) {
-    CommonProtos.DataType.PHYSICAL_ACTIVITY_TRANSITION ->
-        DataProtos.PhysicalActivityTransition.getDefaultInstance()
-    CommonProtos.DataType.PHYSICAL_ACTIVITY ->
-        DataProtos.PhysicalActivity.getDefaultInstance()
-    CommonProtos.DataType.APP_USAGE_EVENT ->
-        DataProtos.AppUsageEvent.getDefaultInstance()
-    CommonProtos.DataType.BATTERY ->
-        DataProtos.Battery.getDefaultInstance()
-    CommonProtos.DataType.BLUETOOTH ->
-        DataProtos.Bluetooth.getDefaultInstance()
-    CommonProtos.DataType.CALL_LOG ->
-        DataProtos.CallLog.getDefaultInstance()
-    CommonProtos.DataType.DEVICE_EVENT ->
-        DataProtos.DeviceEvent.getDefaultInstance()
-    CommonProtos.DataType.EMBEDDED_SENSOR ->
-        DataProtos.EmbeddedSensor.getDefaultInstance()
-    CommonProtos.DataType.EXTERNAL_SENSOR ->
-        DataProtos.ExternalSensor.getDefaultInstance()
-    CommonProtos.DataType.INSTALLED_APP ->
-        DataProtos.InstalledApp.getDefaultInstance()
-    CommonProtos.DataType.KEY_LOG ->
-        DataProtos.KeyLog.getDefaultInstance()
-    CommonProtos.DataType.LOCATION ->
-        DataProtos.Location.getDefaultInstance()
-    CommonProtos.DataType.MEDIA ->
-        DataProtos.Media.getDefaultInstance()
-    CommonProtos.DataType.MESSAGE ->
-        DataProtos.Message.getDefaultInstance()
-    CommonProtos.DataType.NOTIFICATION ->
-        DataProtos.Notification.getDefaultInstance()
-    CommonProtos.DataType.PHYSICAL_STAT ->
-        DataProtos.PhysicalStat.getDefaultInstance()
-    CommonProtos.DataType.SURVEY ->
-        DataProtos.Survey.getDefaultInstance()
-    CommonProtos.DataType.DATA_TRAFFIC ->
-        DataProtos.DataTraffic.getDefaultInstance()
-    CommonProtos.DataType.WIFI ->
-        DataProtos.Wifi.getDefaultInstance()
-    else -> null
-}
-
-fun buildHeartBeat(
-        timestamp: Long,
-        email: String,
-        deviceInfo: String = email,
-        deviceId: String = email
-): HeartBeatProtos.HeartBeat {
-    return HeartBeatProtos.HeartBeat.newBuilder().apply {
-        this.timestamp = timestamp
-        this.utcOffsetSec = OffsetDateTime.now().offset.totalSeconds
-        this.email = email
-        this.deviceInfo = deviceInfo
-        this.deviceId = deviceId
-
-        this.addAllStatus(CommonProtos.DataType.values().filter {
-            it != CommonProtos.DataType.UNRECOGNIZED && it != CommonProtos.DataType.NOT_SPECIFIED
-        }.map { dataType ->
-            HeartBeatProtos.Status.newBuilder().apply {
-                this.dataType = dataType
-                this.lastTimeWritten = timestamp
-                this.recordsRemained = 100
-            }.build()
-        })
-    }.build()
-}
-
-private fun <T : GeneratedMessageV3> fillData(message: T): Message {
-    val builder = message.newBuilderForType()
-    message.descriptorForType.fields.forEach { fieldDescriptor ->
+private fun <T : Message, B : GeneratedMessageV3.Builder<B>> B.fill(block: (B.() -> Unit)? = null): T {
+    descriptorForType.fields.forEach { fieldDescriptor ->
         val value: Any? = when (fieldDescriptor.javaType) {
-            Descriptors.FieldDescriptor.JavaType.STRING -> "TEST_STRING"
-            Descriptors.FieldDescriptor.JavaType.BYTE_STRING -> ByteString.copyFromUtf8("TEST_STRING")
+            Descriptors.FieldDescriptor.JavaType.STRING -> "STRING"
+            Descriptors.FieldDescriptor.JavaType.BYTE_STRING -> ByteString.copyFromUtf8("STRING")
             Descriptors.FieldDescriptor.JavaType.BOOLEAN -> true
-            Descriptors.FieldDescriptor.JavaType.FLOAT -> 10.0F
-            Descriptors.FieldDescriptor.JavaType.INT -> 50
-            Descriptors.FieldDescriptor.JavaType.LONG -> 150L
+            Descriptors.FieldDescriptor.JavaType.FLOAT -> 100.0F
+            Descriptors.FieldDescriptor.JavaType.INT -> 100
+            Descriptors.FieldDescriptor.JavaType.LONG -> 100L
             else -> null
         }
 
         if (value != null) {
             if (fieldDescriptor.isRepeated) {
-                (0 until 10).forEach { builder.addRepeatedField(fieldDescriptor, "$it-th $value") }
+                (0 until 10).forEach { addRepeatedField(fieldDescriptor, "$it-th $value") }
             } else {
-                builder.setField(fieldDescriptor, value)
+                setField(fieldDescriptor, value)
             }
         }
     }
-    return builder.build()
+    block?.invoke(this)
+    return build() as T
 }
 
-fun getHeaderClientInterceptor(authKey: String, authToken: String) = object : ClientInterceptor {
+fun queryRead(
+    dataTypes: Set<DatumProtos.Datum.Type>,
+    subjects: Set<SubjectProtos.Subject>,
+    fromTimestamp: Long,
+    toTimestamp: Long
+) = ServiceProtos.Query.Read.newBuilder().apply {
+    addAllDatumType(dataTypes)
+    addAllGroupName(subjects.map { it.groupName })
+    addAllEmail(subjects.map { it.email })
+    addAllInstanceId(subjects.map { it.instanceId })
+    addAllSource(subjects.map { it.source })
+    addAllDeviceManufacturer(subjects.map { it.deviceManufacturer })
+    addAllDeviceModel(subjects.map { it.deviceModel })
+    addAllDeviceVersion(subjects.map { it.deviceVersion })
+    addAllDeviceOs(subjects.map { it.deviceOs })
+    addAllAppId(subjects.map { it.appId })
+    addAllAppVersion(subjects.map { it.appVersion })
+    this.fromTimestamp = fromTimestamp
+    this.toTimestamp = toTimestamp
+}.build()
+
+fun queryAggregate(
+    dataTypes: Set<DatumProtos.Datum.Type>,
+    subjects: Set<SubjectProtos.Subject>,
+    fromTimestamp: Long,
+    toTimestamp: Long
+) = ServiceProtos.Query.Aggregate.newBuilder().apply {
+    addAllDatumType(dataTypes)
+    addAllGroupName(subjects.map { it.groupName })
+    addAllEmail(subjects.map { it.email })
+    addAllInstanceId(subjects.map { it.instanceId })
+    addAllSource(subjects.map { it.source })
+    addAllDeviceManufacturer(subjects.map { it.deviceManufacturer })
+    addAllDeviceModel(subjects.map { it.deviceModel })
+    addAllDeviceVersion(subjects.map { it.deviceVersion })
+    addAllDeviceOs(subjects.map { it.deviceOs })
+    addAllAppId(subjects.map { it.appId })
+    addAllAppVersion(subjects.map { it.appVersion })
+    this.fromTimestamp = fromTimestamp
+    this.toTimestamp = toTimestamp
+}.build()
+
+infix fun <T, C : Collection<T>> C.shouldContainAllExactly(
+    expected: C
+) = this should containAllExactly(expected)
+
+fun <T> containAllExactly(expected: Collection<T>) = object : Matcher<Collection<T>> {
+    override fun test(value: Collection<T>): MatcherResult =
+        MatcherResult.invoke(
+            expected.size == value.size && expected.containsAll(value) && value.containsAll(expected),
+            {
+                "Not same"
+            },
+            {
+                "Not same"
+            }
+        )
+
+}
+
+fun subjectsMatcher(
+    subjects: List<SubjectProtos.Subject>
+) = object : Matcher<List<SubjectProtos.Subject>> {
+    override fun test(value: List<SubjectProtos.Subject>): MatcherResult {
+        return MatcherResult.invoke(
+            value.all { it in subjects },
+            "One of values are not contained in $subjects",
+            "One of values are contained in $subjects",
+        )
+    }
+}
+
+suspend fun TestContext.testCreateAndReadDatum(
+    delay: Long = TimeUnit.MINUTES.toMillis(1),
+    create: suspend () -> Collection<DatumProtos.Datum>,
+    read: suspend () -> Collection<DatumProtos.Datum>,
+    aggregate: suspend () -> AggregationProtos.Aggregation
+) {
+    val originalData = create.invoke()
+    delay(delay)
+
+    val realData = read.invoke()
+    val aggregation = aggregate.invoke()
+
+    realData shouldContainAllExactly originalData
+    originalData shouldHaveSize aggregation.groupList.sumOf { it.value }.toInt()
+
+    val groupByCount = realData.fold(mutableMapOf<Pair<DatumProtos.Datum.Type, SubjectProtos.Subject>, Double>()) { acc, datum ->
+        val key = dataCaseToDataType(datum.dataCase) to datum.subject
+        val value = acc[key] ?: 0.0
+        acc[key] = value + 1
+        acc
+    }
+
+    groupByCount.entries.forEach { (k, v) ->
+        aggregation.groupList.firstOrNull {
+            it.datumType == k.first && it.subject == k.second
+        }?.value shouldBe v
+    }
+}
+
+suspend fun TestContext.testCreateAndReadHeartBeat(
+    delay: Long = TimeUnit.MINUTES.toMillis(1),
+    createHeartBeats: suspend () -> Collection<HeartBeatProtos.HeartBeat>,
+    readHeartBeats: suspend () -> Collection<HeartBeatProtos.HeartBeat>,
+    readSubjects: suspend () -> Collection<SubjectProtos.Subject>,
+    aggregateSubjects: suspend () -> AggregationProtos.Aggregation,
+) {
+    val originalHeartBeats = createHeartBeats.invoke()
+    val originalSubjects = originalHeartBeats.fold(
+        mutableMapOf<DatumProtos.Datum.Type, Set<SubjectProtos.Subject>>()
+    ) { acc, heartBeat ->
+        heartBeat.dataStatusList.forEach { collector ->
+            val key = collector.datumType
+            val value = acc[key] ?: mutableSetOf()
+            acc[key] = value + heartBeat.subject
+        }
+        acc
+    }
+
+    delay(delay)
+
+    val realHeartBeats = readHeartBeats.invoke()
+    val realSubjects = readSubjects.invoke()
+
+    val subjectAggregation = aggregateSubjects.invoke()
+
+    originalHeartBeats shouldContainAllExactly realHeartBeats
+
+    originalSubjects.values.flatten().toSet() shouldContainAllExactly realSubjects
+    originalSubjects.entries.forEach { (k, v) ->
+        subjectAggregation.groupList.firstOrNull {
+            it.datumType == k
+        }?.value shouldBe v.size.toDouble()
+    }
+}
+
+
+
+fun clientInterceptor(authKey: String, authToken: String) = object : ClientInterceptor {
     override fun <ReqT : Any?, RespT : Any?> interceptCall(
         method: MethodDescriptor<ReqT, RespT>?,
         callOptions: CallOptions?,

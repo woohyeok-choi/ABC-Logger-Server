@@ -4,20 +4,23 @@ import io.grpc.Server
 import io.grpc.ServerBuilder
 import kaist.iclab.abclogger.common.Log
 import kaist.iclab.abclogger.db.Database
+import kaist.iclab.abclogger.db.DatabaseAggregator
 import kaist.iclab.abclogger.db.DatabaseReader
 import kaist.iclab.abclogger.db.DatabaseWriter
 import kaist.iclab.abclogger.schema.*
-import kaist.iclab.abclogger.service.DataOperationService
-import kaist.iclab.abclogger.service.AuthInterceptor
+import kaist.iclab.abclogger.service.DataOperations
+import kaist.iclab.abclogger.interceptor.AuthInterceptor
+import kaist.iclab.abclogger.interceptor.ErrorInterceptor
+import kaist.iclab.abclogger.service.AggregateOperations
+import kaist.iclab.abclogger.service.HeartBeatsOperations
+import kaist.iclab.abclogger.service.SubjectsOperations
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.modules.polymorphic
-import org.litote.kmongo.div
-import org.litote.kmongo.index
 import org.litote.kmongo.serialization.registerModule
+import java.util.concurrent.Executors
 
 class App {
-    private lateinit var server: Server
+    private var server: Server? = null
 
     fun start(
         portNumber: Int,
@@ -34,41 +37,17 @@ class App {
         recipients: List<String>,
         logPath: String
     ) {
-        try {
-            Log.enableFileAppender(logPath)
-
+        if (logPath.isNotBlank()) Log.enableFileAppender(logPath)
+        if (adminEmail.isNotBlank() && adminPassword.isNotBlank() && recipients.isNotEmpty()) {
             Log.enableGMailAppender(
                 email = adminEmail,
                 password = adminPassword,
                 recipients = recipients
             )
+        }
 
-            val serialModule = SerializersModule {
-                polymorphic(Value::class, Value.serializer()) {
-                    subclass(PhysicalActivity::class, PhysicalActivity.serializer())
-                    subclass(PhysicalActivityTransition::class, PhysicalActivityTransition.serializer())
-                    subclass(PhysicalActivity::class, PhysicalActivity.serializer())
-                    subclass(AppUsageEvent::class, AppUsageEvent.serializer())
-                    subclass(Battery::class, Battery.serializer())
-                    subclass(Bluetooth::class, Bluetooth.serializer())
-                    subclass(CallLog::class, CallLog.serializer())
-                    subclass(DeviceEvent::class, DeviceEvent.serializer())
-                    subclass(EmbeddedSensor::class, EmbeddedSensor.serializer())
-                    subclass(ExternalSensor::class, ExternalSensor.serializer())
-                    subclass(InstalledApp::class, InstalledApp.serializer())
-                    subclass(KeyLog::class, KeyLog.serializer())
-                    subclass(Location::class, Location.serializer())
-                    subclass(Media::class, Media.serializer())
-                    subclass(Message::class, Message.serializer())
-                    subclass(Notification::class, Notification.serializer())
-                    subclass(PhysicalStat::class, PhysicalStat.serializer())
-                    subclass(Survey::class, Survey.serializer())
-                    subclass(DataTraffic::class, DataTraffic.serializer())
-                    subclass(Wifi::class, Wifi.serializer())
-                }
-            }
-
-            registerModule(serialModule)
+        try {
+            registerModule(Config.serializersModule)
 
             val database = Database(
                 serverName = dbServerName,
@@ -82,153 +61,66 @@ class App {
 
             runBlocking {
                 database.bind()
-                /**
-                 * Create indices for Datum - here, assume we always use a timestamp field:
-                 * - Compound index
-                 * 1. timestamp, dataType, email, deviceId
-                 * 2. timestamp, dataType, email, deviceInfo, deviceId
-                 * 3. timestamp, email, deviceId
-                 * 4. timestamp, email, deviceInfo, deviceId
-                 * 5. timestamp, deviceId
-                 * 6. timestamp, deviceInfo, deviceId
-                 */
-                with(database.collection<Datum>()) {
-                    ensureIndex(
-                        index(
-                            Datum::timestamp to true,
-                            Datum::dataType to true,
-                            Datum::email to true,
-                            Datum::deviceId to true
-                        )
-                    )
 
-                    ensureIndex(
-                        index(
-                            Datum::timestamp to true,
-                            Datum::dataType to true,
-                            Datum::email to true,
-                            Datum::deviceInfo to true,
-                            Datum::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            Datum::timestamp to true,
-                            Datum::email to true,
-                            Datum::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            Datum::timestamp to true,
-                            Datum::email to true,
-                            Datum::deviceInfo to true,
-                            Datum::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            Datum::timestamp to true,
-                            Datum::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            Datum::timestamp to true,
-                            Datum::deviceInfo to true,
-                            Datum::deviceId to true
-                        )
-                    )
+                Config.datumIndices.forEach { index ->
+                    database.createIndex<Datum>(index)
                 }
 
-                /**
-                 * Create indices for Heartbeats - here, assume we always use a toTimestamp field:
-                 * - Compound index
-                 * 1. timestamp, dataType, email, deviceId
-                 * 2. timestamp, dataType, email, deviceInfo, deviceId
-                 * 3. timestamp, email, deviceId
-                 * 4. timestamp, email, deviceInfo, deviceId
-                 * 5. timestamp, deviceId
-                 * 6. timestamp, deviceInfo, deviceId
-                 */
-                with(database.collection<HeartBeat>()) {
-                    ensureIndex(
-                        index(
-                            HeartBeat::timestamp to true,
-                            HeartBeat::status / Status::dataType to true,
-                            HeartBeat::email to true,
-                            HeartBeat::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            HeartBeat::timestamp to true,
-                            HeartBeat::status / Status::dataType to true,
-                            HeartBeat::email to true,
-                            HeartBeat::deviceInfo to true,
-                            HeartBeat::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            HeartBeat::timestamp to true,
-                            HeartBeat::email to true,
-                            HeartBeat::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            HeartBeat::timestamp to true,
-                            HeartBeat::email to true,
-                            HeartBeat::deviceInfo to true,
-                            HeartBeat::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            HeartBeat::timestamp to true,
-                            HeartBeat::deviceId to true
-                        )
-                    )
-
-                    ensureIndex(
-                        index(
-                            HeartBeat::timestamp to true,
-                            HeartBeat::deviceInfo to true,
-                            HeartBeat::deviceId to true
-                        )
-                    )
+                Config.heartBeatsIndices.forEach { index ->
+                    database.createIndex<HeartBeat>(index)
                 }
             }
 
-            val reader = DatabaseReader(database)
             val writer = DatabaseWriter(database)
+            val reader = DatabaseReader(database, 50)
+            val aggregator = DatabaseAggregator(database, 50)
 
-            val service = DataOperationService(reader, writer)
+
+            val bulkSize = 5000
+            val dispatcher = Executors.newFixedThreadPool(32).asCoroutineDispatcher()
+
+            val dataOperations = DataOperations(
+                reader = reader,
+                writer = writer,
+                bulkSize = bulkSize,
+                context = dispatcher
+            )
+            val heartBeatsOperations = HeartBeatsOperations(
+                reader = reader,
+                writer = writer,
+                bulkSize = bulkSize,
+                context = dispatcher
+            )
+            val subjectOperations = SubjectsOperations(
+                reader = reader,
+                bulkSize = bulkSize,
+                context = dispatcher
+            )
+            val aggregateOperations = AggregateOperations(
+                aggregator = aggregator,
+                context = dispatcher
+            )
 
             server = ServerBuilder.forPort(portNumber)
-                .addService(service)
+                .directExecutor()
+                .intercept(ErrorInterceptor())
                 .intercept(AuthInterceptor(authTokens.toSet()))
+                .addService(dataOperations)
+                .addService(heartBeatsOperations)
+                .addService(subjectOperations)
+                .addService(aggregateOperations)
                 .build()
 
-            server.start()
+
+            server?.start()
 
             Runtime.getRuntime().addShutdownHook(
                 Thread {
                     Log.info("JVM is shutting down, so a server will be also shutting down.")
-                    server.shutdown()
+                    server?.shutdown()
                     Log.info("A server shuts down.")
                 }
             )
-
             Log.info("A server is started..")
         } catch (e: Exception) {
             Log.error("A server cannot be started.", e)
@@ -236,10 +128,10 @@ class App {
     }
 
     fun await() {
-        server.awaitTermination()
+        server?.awaitTermination()
     }
 
     fun stop() {
-        server.shutdown()
+        server?.shutdownNow()?.awaitTermination()
     }
 }

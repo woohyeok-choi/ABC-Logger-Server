@@ -1,64 +1,43 @@
 package kaist.iclab.abclogger
 
 import io.grpc.ManagedChannel
-import io.grpc.ManagedChannelBuilder
 import io.kotest.core.spec.Spec
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.core.test.TestCaseOrder
-import io.kotest.matchers.Matcher
-import io.kotest.matchers.MatcherResult
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotest.matchers.should
-import io.kotest.matchers.shouldBe
-import kaist.iclab.abclogger.grpc.DataOperationsGrpcKt
-import kaist.iclab.abclogger.grpc.QueryProtos
-import kaist.iclab.abclogger.grpc.proto.CommonProtos
-import kaist.iclab.abclogger.grpc.proto.DataProtos
+import kaist.iclab.abclogger.grpc.proto.DatumProtos
 import kaist.iclab.abclogger.grpc.proto.SubjectProtos
-import kotlinx.coroutines.delay
+import kaist.iclab.abclogger.grpc.service.*
 import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.toList
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.TimeUnit
 
 
-private const val START_TIME = 1000L
-private const val END_TIME = 1500L
+private const val START_TIME = 0L
+private const val END_TIME = 400L
 private val TIME_RANGE = START_TIME until END_TIME
-private val DATA_TYPES = CommonProtos.DataType.values().filter {
-    it != CommonProtos.DataType.NOT_SPECIFIED &&
-        it != CommonProtos.DataType.UNRECOGNIZED
+private val DATA_TYPES = DatumProtos.Datum.Type.values().filter {
+    it != DatumProtos.Datum.Type.ALL && it != DatumProtos.Datum.Type.UNRECOGNIZED
 }
 
 class TestDataConsistency : StringSpec() {
-    private lateinit var app: App
     private lateinit var channel: ManagedChannel
-    private lateinit var stub: DataOperationsGrpcKt.DataOperationsCoroutineStub
+    private lateinit var dataStub: DataOperationsGrpcKt.DataOperationsCoroutineStub
+    private lateinit var heartBeatStub: HeartBeatsOperationGrpcKt.HeartBeatsOperationCoroutineStub
+    private lateinit var subjectStub: SubjectsOperationsGrpcKt.SubjectsOperationsCoroutineStub
+    private lateinit var aggregateStub: AggregateOperationsGrpcKt.AggregateOperationsCoroutineStub
+
+    private lateinit var app: App
 
     override fun testCaseOrder(): TestCaseOrder? = TestCaseOrder.Sequential
 
     override fun beforeSpec(spec: Spec) {
-        app = App()
-
-        app.start(
-            portNumber = 50051,
-            dbServerName = "localhost",
-            dbPortNumber = 27017,
-            dbName = "data",
-            dbRootPassword = "admin",
-            dbRootUserName = "admin",
-            dbWriterUserName = "abcwriter",
-            dbWriterUserPassword = "abcwriter",
-            adminEmail = "",
-            adminPassword = "",
-            recipients = emptyList(),
-            logPath = "./log.log",
-            authTokens = emptyList()
-        )
-
-        channel = ManagedChannelBuilder.forAddress("localhost", 50051)
-            .directExecutor()
-            .usePlaintext()
-            .build()
-
-        stub = DataOperationsGrpcKt.DataOperationsCoroutineStub(channel)
+        app = app()
+        channel = channel()
+        dataStub = DataOperationsGrpcKt.DataOperationsCoroutineStub(channel)
+        heartBeatStub = HeartBeatsOperationGrpcKt.HeartBeatsOperationCoroutineStub(channel)
+        subjectStub = SubjectsOperationsGrpcKt.SubjectsOperationsCoroutineStub(channel)
+        aggregateStub = AggregateOperationsGrpcKt.AggregateOperationsCoroutineStub(channel)
     }
 
     override fun afterSpec(spec: Spec) {
@@ -67,350 +46,665 @@ class TestDataConsistency : StringSpec() {
     }
 
     init {
-        "create datum" {
-            val data = DATA_TYPES.map { dataType ->
-                TIME_RANGE.map { timestamp ->
-                    buildDatum(
-                        dataType = dataType,
+
+        DATA_TYPES.forEach { checkConsistencyForDataType(it) }
+
+        checkDataConsistencyForCreateDatum(DATA_TYPES, TIME_RANGE)
+        checkDataConsistencyForCreateData(DATA_TYPES, TIME_RANGE)
+        checkDataConsistencyForCreateDataAsStream(DATA_TYPES, TIME_RANGE)
+        checkDataConsistencyForCreateDataAsStreamAndReadDataAsStream(DATA_TYPES, TIME_RANGE)
+        checkDataConsistencyForQueryingSharedFields(DATA_TYPES, TIME_RANGE)
+        checkDataConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)
+
+        DATA_TYPES.forEach { checkHeartBeatConsistencyForEachDataType(it, TIME_RANGE) }
+
+        checkHeartBeatConsistencyForMultipleDataTypes(DATA_TYPES, TIME_RANGE)
+        checkHeartBeatConsistencyForQueryingSharedFields(DATA_TYPES, TIME_RANGE)
+        checkHeartBeatConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)
+    }
+
+    private fun checkConsistencyForDataType(dataType: DatumProtos.Datum.Type) {
+        "Check a Consistency for Data $dataType" {
+            val subject = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group0"
+                this.email = "email0"
+                this.instanceId = "instanceid0"
+                this.source = "source0"
+                this.deviceManufacturer = "manufacturer0"
+                this.deviceVersion = "version0"
+                this.deviceModel = "model0"
+                this.deviceOs = "os0"
+                this.appId = "appid0"
+                this.appVersion = "appversion0"
+            }.build()
+
+            val data = TIME_RANGE.map { timestamp ->
+                datum(
+                    datumType = dataType,
+                    timestamp = timestamp,
+                    subject = subject
+                )
+            }
+
+            testCreateAndReadDatum(
+                delay = TimeUnit.SECONDS.toMillis(20),
+                create = {
+                    data.forEach { dataStub.createDatum(it) }
+                    data
+                },
+                read = {
+                    dataStub.readData(
+                        queryRead(setOf(dataType), setOf(subject), START_TIME, END_TIME)
+                    ).datumList
+                },
+                aggregate = {
+                    aggregateStub.countData(
+                        queryAggregate(setOf(dataType), setOf(subject), START_TIME, END_TIME)
+                    )
+                }
+            )
+        }
+    }
+
+    private fun checkDataConsistencyForCreateDatum(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check Consistencies for CreateDatum" {
+            val subject = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group1"
+                this.email = "email1"
+                this.instanceId = "instanceid1"
+                this.source = "source1"
+                this.deviceManufacturer = "manufacturer1"
+                this.deviceModel = "model1"
+                this.deviceOs = "os1"
+                this.appId = "appid1"
+                this.appVersion = "appversion1"
+            }.build()
+
+            val data = dataTypes.map { dataType ->
+                timeRange.map { timestamp ->
+                    datum(
+                        datumType = dataType,
                         timestamp = timestamp,
-                        email = "CREATE_DATUM",
-                        deviceInfo = "DEVICE_INFO_1",
-                        deviceId = "DEVICE_ID_1"
+                        subject = subject
                     )
                 }
             }.flatten()
 
-            data.map {
-                stub.createDatum(it)
-            }.size shouldBe data.size
-
-            delay(10 * 2000)
-        }
-
-        "check data length for create datum" {
-
-            val expectedSize = DATA_TYPES.size * (END_TIME - START_TIME)
-            val realSize = stub.countData(
-                buildQueryForData(email = "CREATE_DATUM")
-            )
-            expectedSize shouldBe realSize.value
-        }
-
-        "create data" {
-            val chunks = DATA_TYPES.map { dataType ->
-                TIME_RANGE.map { timestamp ->
-                    buildDatum(
-                        dataType = dataType,
-                        timestamp = timestamp,
-                        email = "CREATE_DATA",
-                        deviceInfo = "DEVICE_INFO_1",
-                        deviceId = "DEVICE_ID_2"
+            testCreateAndReadDatum(
+                create = {
+                    data.forEach { dataStub.createDatum(it) }
+                    data
+                },
+                read = {
+                    dataStub.readDataAsStream(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).toList()
+                },
+                aggregate = {
+                    aggregateStub.countData(
+                        queryAggregate(setOf(), setOf(subject), START_TIME, END_TIME)
                     )
                 }
-            }.flatten().chunked(200)
-            chunks.map {
-                stub.createData(
-                    QueryProtos.Bulk.Data.newBuilder().addAllData(it).build()
-                )
-            }.size shouldBe chunks.size
-
-            delay(10 * 2000)
-        }
-
-        "check data length for create data" {
-
-            val expectedSize = DATA_TYPES.size * (END_TIME - START_TIME)
-            val realSize = stub.countData(
-                buildQueryForData(email = "CREATE_DATA")
             )
-            expectedSize shouldBe realSize.value
         }
+    }
 
-        "create data as stream" {
-            val data = DATA_TYPES.map { dataType ->
-                TIME_RANGE.map { timestamp ->
-                    buildDatum(
-                        dataType = dataType,
+    private fun checkDataConsistencyForCreateData(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check Consistencies for CreateData" {
+            val subject = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group2"
+                this.email = "email2"
+                this.instanceId = "instanceid2"
+                this.source = "source2"
+                this.deviceManufacturer = "manufacturer2"
+                this.deviceModel = "model2"
+                this.deviceOs = "os2"
+                this.appId = "appid2"
+                this.appVersion = "appversion2"
+            }.build()
+
+            val data = dataTypes.map { dataType ->
+                timeRange.map { timestamp ->
+                    datum(
+                        datumType = dataType,
                         timestamp = timestamp,
-                        email = "CREATE_DATA_AS_STREAM",
-                        deviceInfo = "DEVICE_INFO_2",
-                        deviceId = "DEVICE_ID_3"
+                        subject = subject
                     )
                 }
             }.flatten()
 
-            stub.createDataAsStream(data.asFlow()) shouldBe CommonProtos.Empty.getDefaultInstance()
-
-            delay(10 * 2000)
-        }
-
-        "check data length for create data as stream" {
-            val expectedSize = DATA_TYPES.size * (END_TIME - START_TIME)
-            val realSize = stub.countData(
-                buildQueryForData(email = "CREATE_DATA_AS_STREAM")
-            )
-            expectedSize shouldBe realSize.value
-        }
-
-        "read empty data" {
-            stub.readData(
-                buildQueryForData(fromTimestamp = 0, toTimestamp = 100)
-            ).dataList.size shouldBe 0
-        }
-
-        "read all data" {
-            stub.readData(
-                buildQueryForData(fromTimestamp = 0, toTimestamp = 0)
-            ).dataList.size shouldBe 500
-        }
-
-        "read data by timestamps" {
-            stub.readData(
-                buildQueryForData(fromTimestamp = START_TIME, toTimestamp = START_TIME + 200)
-            ).dataList should getDataMatcher(fromTimestamp = START_TIME, toTimestamp = START_TIME + 200)
-        }
-
-        "read data by dataType" {
-            stub.readData(
-                buildQueryForData(dataType = CommonProtos.DataType.SURVEY)
-            ).dataList should getDataMatcher(dataType = CommonProtos.DataType.SURVEY)
-        }
-
-        "read data by email" {
-            stub.readData(
-                buildQueryForData(email = "CREATE_DATA_AS_STREAM")
-            ).dataList should getDataMatcher(email = "CREATE_DATA_AS_STREAM")
-        }
-
-        "read data by device info" {
-            stub.readData(
-                buildQueryForData(deviceInfo = "DEVICE_INFO_1")
-            ).dataList should getDataMatcher(deviceInfo = "DEVICE_INFO_1")
-        }
-
-        "read data by device id" {
-            stub.readData(
-                buildQueryForData(deviceId = "DEVICE_ID_1")
-            ).dataList should getDataMatcher(deviceId = "DEVICE_ID_1")
-        }
-
-        "read data by timestamp and data type" {
-            stub.readData(
-                buildQueryForData(
-                    fromTimestamp = START_TIME + 100,
-                    toTimestamp = START_TIME + 500,
-                    dataType = CommonProtos.DataType.APP_USAGE_EVENT
-                )
-            ).dataList should getDataMatcher(
-                fromTimestamp = START_TIME + 100,
-                toTimestamp = START_TIME + 500,
-                dataType = CommonProtos.DataType.APP_USAGE_EVENT
+            testCreateAndReadDatum(
+                create = {
+                    dataStub.createData(ServiceProtos.Bulk.Data.newBuilder().addAllDatum(data).build())
+                    data
+                },
+                read = {
+                    dataStub.readDataAsStream(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).toList()
+                },
+                aggregate = {
+                    aggregateStub.countData(
+                        queryAggregate(setOf(), setOf(subject), START_TIME, END_TIME)
+                    )
+                }
             )
         }
+    }
 
-        "read data by timestamp, data type, and email" {
-            stub.readData(
-                buildQueryForData(
-                    fromTimestamp = START_TIME + 100,
-                    toTimestamp = START_TIME + 500,
-                    dataType = CommonProtos.DataType.PHYSICAL_STAT,
-                    email = "CREATE_DATUM"
-                )
-            ).dataList should getDataMatcher(
-                fromTimestamp = START_TIME + 100,
-                toTimestamp = START_TIME + 500,
-                dataType = CommonProtos.DataType.PHYSICAL_STAT,
-                email = "CREATE_DATUM"
+    private fun checkDataConsistencyForCreateDataAsStream(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check Consistencies for CreateDataAsStream" {
+            val subject = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group3"
+                this.email = "email3"
+                this.instanceId = "instanceid3"
+                this.source = "source3"
+                this.deviceManufacturer = "manufacturer3"
+                this.deviceModel = "model3"
+                this.deviceOs = "os3"
+                this.appId = "appid3"
+                this.appVersion = "appversion3"
+            }.build()
+
+            val data = dataTypes.map { dataType ->
+                timeRange.map { timestamp ->
+                    datum(
+                        datumType = dataType,
+                        timestamp = timestamp,
+                        subject = subject
+                    )
+                }
+            }.flatten()
+
+            testCreateAndReadDatum(
+                create = {
+                    dataStub.createDataAsStream(data.asFlow())
+                    data
+                },
+                read = {
+                    dataStub.readDataAsStream(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).toList()
+                },
+                aggregate = {
+                    aggregateStub.countData(
+                        queryAggregate(setOf(), setOf(subject), START_TIME, END_TIME)
+                    )
+                }
             )
         }
+    }
 
-        "read data by timestamp, data type, email, and device info" {
-            stub.readData(
-                buildQueryForData(
-                    fromTimestamp = START_TIME + 100,
-                    toTimestamp = START_TIME + 500,
-                    dataType = CommonProtos.DataType.PHYSICAL_ACTIVITY,
-                    email = "CREATE_DATA_AS_STREAM",
-                    deviceInfo = "DEVICE_INFO_2"
-                )
-            ).dataList should getDataMatcher(
-                fromTimestamp = START_TIME + 100,
-                toTimestamp = START_TIME + 500,
-                dataType = CommonProtos.DataType.PHYSICAL_ACTIVITY,
-                email = "CREATE_DATA_AS_STREAM",
-                deviceInfo = "DEVICE_INFO_2"
+    private fun checkDataConsistencyForCreateDataAsStreamAndReadDataAsStream(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check Consistencies for CreateDataAsStreamAndReadDataAsStream" {
+            val subject = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group4"
+                this.email = "email4"
+                this.instanceId = "instanceid4"
+                this.source = "source4"
+                this.deviceManufacturer = "manufacturer4"
+                this.deviceModel = "model4"
+                this.deviceOs = "os4"
+                this.appId = "appid4"
+                this.appVersion = "appversion4"
+            }.build()
+
+            val data = dataTypes.map { dataType ->
+                timeRange.map { timestamp ->
+                    datum(
+                        datumType = dataType,
+                        timestamp = timestamp,
+                        subject = subject
+                    )
+                }
+            }.flatten()
+
+            testCreateAndReadDatum(
+                create = {
+                    dataStub.createDataAsStream(data.asFlow())
+                    data
+                },
+                read = {
+                    val deque = ConcurrentLinkedQueue<DatumProtos.Datum>()
+                    dataStub.readDataAsStream(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).toList()
+                },
+                aggregate = {
+                    aggregateStub.countData(
+                        queryAggregate(setOf(), setOf(subject), START_TIME, END_TIME)
+                    )
+                }
             )
         }
+    }
 
-        "read data by timestamp, data type, email, device info, and device id" {
-            stub.readData(
-                buildQueryForData(
-                    fromTimestamp = START_TIME + 100,
-                    toTimestamp = START_TIME + 500,
-                    dataType = CommonProtos.DataType.PHYSICAL_ACTIVITY_TRANSITION,
-                    email = "CREATE_DATA",
-                    deviceInfo = "DEVICE_INFO_1",
-                    deviceId = "DEVICE_ID_2"
-                )
-            ).dataList should getDataMatcher(
-                fromTimestamp = START_TIME + 100,
-                toTimestamp = START_TIME + 500,
-                dataType = CommonProtos.DataType.PHYSICAL_ACTIVITY_TRANSITION,
-                email = "CREATE_DATA",
-                deviceInfo = "DEVICE_INFO_1",
-                deviceId = "DEVICE_ID_2"
+    private fun checkDataConsistencyForQueryingSharedFields(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check Consistencies for Querying Shared Fields" {
+            val subjectFirst = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group5"
+                this.email = "email5"
+                this.instanceId = "instanceid5"
+                this.source = "source5"
+                this.deviceManufacturer = "manufacturer5"
+                this.deviceModel = "model5"
+                this.deviceOs = "os5"
+                this.appId = "appid5"
+                this.appVersion = "appversion5"
+            }.build()
 
+            val subjectSecond = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group5"
+                this.email = "email5"
+                this.instanceId = "instanceid5"
+                this.source = "source6"
+                this.deviceManufacturer = "manufacturer6"
+                this.deviceModel = "model6"
+                this.deviceOs = "os6"
+                this.appId = "appid6"
+                this.appVersion = "appversion6"
+            }.build()
+
+            val dataFirst = dataTypes.map { dataType ->
+                timeRange.map { timestamp ->
+                    datum(
+                        datumType = dataType,
+                        timestamp = timestamp,
+                        subject = subjectFirst
+                    )
+                }
+            }.flatten()
+            val dataSecond = dataTypes.map { dataType ->
+                timeRange.map { timestamp ->
+                    datum(
+                        datumType = dataType,
+                        timestamp = timestamp,
+                        subject = subjectSecond
+                    )
+                }
+            }.flatten()
+
+            val data = dataFirst + dataSecond
+            val subjectQuery = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group5"
+                this.email = "email5"
+                this.instanceId = "instanceid5"
+            }.build()
+
+            testCreateAndReadDatum(
+                create = {
+                    dataStub.createDataAsStream(data.asFlow())
+                    data
+                },
+                read = {
+                    dataStub.readDataAsStream(
+                        queryRead(setOf(), setOf(subjectQuery), START_TIME, END_TIME)
+                    ).toList()
+                },
+                aggregate = {
+                    aggregateStub.countData(
+                        queryAggregate(setOf(), setOf(subjectQuery), START_TIME, END_TIME)
+                    )
+                }
             )
         }
+    }
 
-        "read data by timestamp, and email" {
-            stub.readData(
-                buildQueryForData(
-                    fromTimestamp = START_TIME + 100,
-                    toTimestamp = START_TIME + 500,
-                    email = "CREATE_DATA_AS_STREAM"
-                )
-            ).dataList should getDataMatcher(
-                fromTimestamp = START_TIME + 100,
-                toTimestamp = START_TIME + 500,
-                email = "CREATE_DATA_AS_STREAM"
-            )
-        }
+    private fun checkDataConsistencyForQueryingMultipleFields(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check Consistencies for Querying Multiple Fields" {
+            val subjectFirst = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group7"
+                this.email = "email7"
+                this.instanceId = "instanceid7"
+                this.source = "source7"
+                this.deviceManufacturer = "manufacturer7"
+                this.deviceModel = "model7"
+                this.deviceOs = "os7"
+                this.appId = "appid7"
+                this.appVersion = "appversion7"
+            }.build()
 
-        "read data by timestamp, email, device info" {
-            stub.readData(
-                buildQueryForData(
-                    fromTimestamp = START_TIME + 100,
-                    toTimestamp = START_TIME + 500,
-                    email = "CREATE_DATA_AS_STREAM",
-                    deviceInfo = "DEVICE_INFO_2"
-                )
-            ).dataList should getDataMatcher(
-                fromTimestamp = START_TIME + 100,
-                toTimestamp = START_TIME + 500,
-                email = "CREATE_DATA_AS_STREAM",
-                deviceInfo = "DEVICE_INFO_2"
-            )
-        }
+            val subjectSecond = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group8"
+                this.email = "email8"
+                this.instanceId = "instanceid8"
+                this.source = "source8"
+                this.deviceManufacturer = "manufacturer8"
+                this.deviceModel = "model8"
+                this.deviceOs = "os8"
+                this.appId = "appid8"
+                this.appVersion = "appversion8"
+            }.build()
 
-        "read data by timestamp and device info" {
-            stub.readData(
-                buildQueryForData(
-                    fromTimestamp = START_TIME + 100,
-                    toTimestamp = START_TIME + 500,
-                    deviceInfo = "DEVICE_INFO_1"
-                )
-            ).dataList should getDataMatcher(
-                fromTimestamp = START_TIME + 100,
-                toTimestamp = START_TIME + 500,
-                deviceInfo = "DEVICE_INFO_1"
-            )
-        }
+            val dataFirst = dataTypes.map { dataType ->
+                timeRange.map { timestamp ->
+                    datum(
+                        datumType = dataType,
+                        timestamp = timestamp,
+                        subject = subjectFirst
+                    )
+                }
+            }.flatten()
+            val dataSecond = dataTypes.map { dataType ->
+                timeRange.map { timestamp ->
+                    datum(
+                        datumType = dataType,
+                        timestamp = timestamp,
+                        subject = subjectSecond
+                    )
+                }
+            }.flatten()
 
-        "read subjects" {
-            stub.readSubjects(
-                QueryProtos.Query.Subjects.newBuilder().build()
-            ).subjectList shouldContainExactlyInAnyOrder listOf(
+            val data = dataFirst + dataSecond
+            val subjectQuery = setOf(
                 SubjectProtos.Subject.newBuilder().apply {
-                    email = "CREATE_DATUM"
-                    deviceInfo = "DEVICE_INFO_1"
-                    deviceId = "DEVICE_ID_1"
+                    this.groupName = "group7"
+                    this.email = "email7"
+                    this.instanceId = "instanceid7"
                 }.build(),
                 SubjectProtos.Subject.newBuilder().apply {
-                    email = "CREATE_DATA"
-                    deviceInfo = "DEVICE_INFO_1"
-                    deviceId = "DEVICE_ID_2"
-                }.build(),
-                SubjectProtos.Subject.newBuilder().apply {
-                    email = "CREATE_DATA_AS_STREAM"
-                    deviceInfo = "DEVICE_INFO_2"
-                    deviceId = "DEVICE_ID_3"
+                    this.groupName = "group8"
+                    this.email = "email8"
+                    this.instanceId = "instanceid8"
                 }.build()
             )
-        }
-    }
 
-    private fun buildQueryForData(
-        dataType: CommonProtos.DataType? = null,
-        email: String? = null,
-        deviceId: String? = null,
-        deviceInfo: String? = null,
-        fromTimestamp: Long? = null,
-        toTimestamp: Long? = null,
-        limit: Int? = null,
-        isAscending: Boolean? = null
-    ): QueryProtos.Query.Data = QueryProtos.Query.Data.newBuilder().apply {
-        this.dataType = dataType ?: CommonProtos.DataType.NOT_SPECIFIED
-        this.email = email ?: ""
-        this.deviceId = deviceId ?: ""
-        this.deviceInfo = deviceInfo ?: ""
-        this.fromTimestamp = fromTimestamp ?: 0
-        this.toTimestamp = toTimestamp ?: 0
-        this.limit = limit ?: 500
-        this.isAscending = isAscending ?: false
-    }.build()
-
-    private fun buildShouldString(subj: String, verb: String, obj: String): Pair<String, String> =
-        "$subj should $verb $obj" to "$subj should not $verb $obj"
-
-    private fun getDataMatcher(
-        dataType: CommonProtos.DataType? = null,
-        email: String? = null,
-        deviceId: String? = null,
-        deviceInfo: String? = null,
-        fromTimestamp: Long? = null,
-        toTimestamp: Long? = null
-    ): Matcher<MutableList<DataProtos.Datum>> = object : Matcher<MutableList<DataProtos.Datum>> {
-        override fun test(value: MutableList<DataProtos.Datum>): MatcherResult {
-            val checkTimestamp = if (fromTimestamp != null && toTimestamp != null) {
-                value.find { it.timestamp !in (fromTimestamp until toTimestamp) }?.let {
-                    buildShouldString(
-                        "Timestamp ${it.timestamp}", "be in", "$fromTimestamp until $toTimestamp"
+            testCreateAndReadDatum(
+                create = {
+                    dataStub.createDataAsStream(data.asFlow())
+                    data
+                },
+                read = {
+                    dataStub.readDataAsStream(
+                        queryRead(setOf(), subjectQuery, START_TIME, END_TIME)
+                    ).toList()
+                },
+                aggregate = {
+                    aggregateStub.countData(
+                        queryAggregate(setOf(), subjectQuery, START_TIME, END_TIME)
                     )
                 }
-            } else null
-
-            val checkEmail = if (!email.isNullOrBlank()) {
-                value.find { it.email != email }?.let {
-                    buildShouldString(
-                        "Email ${it.email}", "be equal to", "$email"
-                    )
-                }
-            } else null
-
-            val checkDataType = if (dataType != null && dataType != CommonProtos.DataType.NOT_SPECIFIED) {
-                value.find { it.dataCase.name != dataType.name }?.let {
-                    buildShouldString(
-                        "Data type ${it.dataCase.name}", "be equal to", dataType.name
-                    )
-                }
-            } else null
-
-            val checkDeviceInfo = if (!deviceInfo.isNullOrBlank()) {
-                value.find { it.deviceInfo != deviceInfo }?.let {
-                    buildShouldString(
-                        "Device info ${it.deviceInfo}", "be equal to", deviceInfo
-                    )
-                }
-            } else null
-
-            val checkDeviceId = if (!deviceId.isNullOrBlank()) {
-                value.find { it.deviceId != deviceId }?.let {
-                    buildShouldString(
-                        "Device info ${it.deviceId}", "be equal to", deviceId
-                    )
-                }
-            } else null
-
-            val results = listOfNotNull(
-                checkTimestamp, checkEmail, checkDataType, checkDeviceInfo, checkDeviceId
-            )
-
-            return MatcherResult(
-                results.isEmpty(),
-                results.joinToString("; ") { it.first },
-                results.joinToString("; ") { it.second }
             )
         }
     }
+
+    private fun checkHeartBeatConsistencyForEachDataType(
+        dataType: DatumProtos.Datum.Type,
+        timeRange: LongRange
+    ) {
+        "Check a Consistency for HeartBeat $dataType" {
+            val subject = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group0"
+                this.email = "email0"
+                this.instanceId = "instanceid0"
+                this.source = "source0"
+                this.deviceManufacturer = "manufacturer0"
+                this.deviceModel = "model0"
+                this.deviceOs = "os0"
+                this.appId = "appid0"
+                this.appVersion = "appversion0"
+            }.build()
+
+            val heartBeats = timeRange.map { timestamp ->
+                heartBeat(
+                    dataTypes = listOf(dataType),
+                    timestamp = timestamp,
+                    subject = subject
+                )
+            }
+            testCreateAndReadHeartBeat(
+                delay = TimeUnit.SECONDS.toMillis(20),
+                createHeartBeats = {
+                    heartBeats.forEach { heartBeatStub.createHeartBeat(it) }
+                    heartBeats
+                },
+
+                readHeartBeats = {
+                    heartBeatStub.readHeartBeats(
+                        queryRead(setOf(dataType), setOf(subject), START_TIME, END_TIME)
+                    ).heartBeatList
+                },
+                readSubjects = {
+                    subjectStub.readSubjects(
+                        queryRead(setOf(dataType), setOf(subject), START_TIME, END_TIME)
+                    ).subjectList
+                },
+
+                aggregateSubjects = {
+                    aggregateStub.countSubjects(
+                        queryAggregate(setOf(dataType), setOf(subject), START_TIME, END_TIME)
+                    )
+                }
+            )
+
+        }
+    }
+
+    private fun checkHeartBeatConsistencyForMultipleDataTypes(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check a Consistency for HeartBeat with Multiple Data Types" {
+            val subject = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group1"
+                this.email = "email1"
+                this.instanceId = "instanceid1"
+                this.source = "source1"
+                this.deviceManufacturer = "manufacturer1"
+                this.deviceModel = "model1"
+                this.deviceOs = "os1"
+                this.appId = "appid1"
+                this.appVersion = "appversion1"
+            }.build()
+
+            val heartBeats = timeRange.map { timestamp ->
+                heartBeat(
+                    dataTypes = dataTypes,
+                    timestamp = timestamp,
+                    subject = subject
+                )
+            }
+            testCreateAndReadHeartBeat(
+                delay = TimeUnit.SECONDS.toMillis(20),
+                createHeartBeats = {
+                    heartBeats.forEach { heartBeatStub.createHeartBeat(it) }
+                    heartBeats
+                },
+                readHeartBeats = {
+                    heartBeatStub.readHeartBeatsAsStream(
+                        queryRead(dataTypes.toSet(), setOf(subject), START_TIME, END_TIME)
+                    ).toList()
+                },
+                readSubjects = {
+                    subjectStub.readSubjectsAsStream(
+                        queryRead(dataTypes.toSet(), setOf(subject), START_TIME, END_TIME)
+                    ).toList()
+                },
+                aggregateSubjects = {
+                    aggregateStub.countSubjects(
+                        queryAggregate(dataTypes.toSet(), setOf(subject), START_TIME, END_TIME)
+                    )
+                }
+            )
+        }
+    }
+
+    private fun checkHeartBeatConsistencyForQueryingSharedFields(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check a Consistency for HeartBeat with Querying Shared Fields" {
+            val subjectFirst = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group5"
+                this.email = "email5"
+                this.instanceId = "instanceid5"
+                this.source = "source5"
+                this.deviceManufacturer = "manufacturer5"
+                this.deviceModel = "model5"
+                this.deviceOs = "os5"
+                this.appId = "appid5"
+                this.appVersion = "appversion5"
+            }.build()
+
+            val subjectSecond = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group5"
+                this.email = "email5"
+                this.instanceId = "instanceid5"
+                this.source = "source6"
+                this.deviceManufacturer = "manufacturer6"
+                this.deviceModel = "model6"
+                this.deviceOs = "os6"
+                this.appId = "appid6"
+                this.appVersion = "appversion6"
+            }.build()
+
+            val heartBeatsFirst = timeRange.map { timestamp ->
+                heartBeat(
+                    dataTypes = dataTypes,
+                    timestamp = timestamp,
+                    subject = subjectFirst
+                )
+            }
+            val heartBeatsSecond = timeRange.map { timestamp ->
+                heartBeat(
+                    dataTypes = dataTypes,
+                    timestamp = timestamp,
+                    subject = subjectSecond
+                )
+            }
+            val heartBeats = heartBeatsFirst + heartBeatsSecond
+            val subjectQuery = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group5"
+                this.email = "email5"
+                this.instanceId = "instanceid5"
+            }.build()
+
+            testCreateAndReadHeartBeat(
+                delay = TimeUnit.SECONDS.toMillis(20),
+                createHeartBeats = {
+                    heartBeats.forEach { heartBeatStub.createHeartBeat(it) }
+                    heartBeats
+                },
+
+                readHeartBeats = {
+                    heartBeatStub.readHeartBeats(
+                        queryRead(dataTypes.toSet(), setOf(subjectQuery), START_TIME, END_TIME)
+                    ).heartBeatList
+                },
+                readSubjects = {
+                    subjectStub.readSubjects(
+                        queryRead(dataTypes.toSet(), setOf(subjectQuery), START_TIME, END_TIME)
+                    ).subjectList
+                },
+
+                aggregateSubjects = {
+                    aggregateStub.countSubjects(
+                        queryAggregate(dataTypes.toSet(), setOf(subjectQuery), START_TIME, END_TIME)
+                    )
+                }
+            )
+        }
+    }
+
+    private fun checkHeartBeatConsistencyForQueryingMultipleFields(
+        dataTypes: Collection<DatumProtos.Datum.Type>,
+        timeRange: LongRange
+    ) {
+        "Check a Consistency for HeartBeat with Querying Multiple Fields" {
+            val subjectFirst = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group7"
+                this.email = "email7"
+                this.instanceId = "instanceid7"
+                this.source = "source7"
+                this.deviceManufacturer = "manufacturer7"
+                this.deviceModel = "model7"
+                this.deviceOs = "os7"
+                this.appId = "appid7"
+                this.appVersion = "appversion7"
+            }.build()
+
+            val subjectSecond = SubjectProtos.Subject.newBuilder().apply {
+                this.groupName = "group8"
+                this.email = "email8"
+                this.instanceId = "instanceid8"
+                this.source = "source8"
+                this.deviceManufacturer = "manufacturer8"
+                this.deviceModel = "model8"
+                this.deviceOs = "os8"
+                this.appId = "appid8"
+                this.appVersion = "appversion8"
+            }.build()
+
+            val heartBeatsFirst = timeRange.map { timestamp ->
+                heartBeat(
+                    dataTypes = dataTypes,
+                    timestamp = timestamp,
+                    subject = subjectFirst
+                )
+            }
+            val heartBeatsSecond = timeRange.map { timestamp ->
+                heartBeat(
+                    dataTypes = dataTypes,
+                    timestamp = timestamp,
+                    subject = subjectSecond
+                )
+            }
+            val heartBeats = heartBeatsFirst + heartBeatsSecond
+            val subjectQuery = setOf(
+                SubjectProtos.Subject.newBuilder().apply {
+                    this.groupName = "group7"
+                    this.email = "email7"
+                    this.instanceId = "instanceid7"
+                }.build(),
+                SubjectProtos.Subject.newBuilder().apply {
+                    this.groupName = "group8"
+                    this.email = "email8"
+                    this.instanceId = "instanceid8"
+                }.build()
+            )
+            testCreateAndReadHeartBeat(
+                delay = TimeUnit.SECONDS.toMillis(20),
+                createHeartBeats = {
+                    heartBeats.forEach { heartBeatStub.createHeartBeat(it) }
+                    heartBeats
+                },
+
+                readHeartBeats = {
+                    heartBeatStub.readHeartBeatsAsStream(
+                        queryRead(dataTypes.toSet(), subjectQuery, START_TIME, END_TIME)
+                    ).toList()
+                },
+                readSubjects = {
+                    subjectStub.readSubjectsAsStream(
+                        queryRead(dataTypes.toSet(), subjectQuery, START_TIME, END_TIME)
+                    ).toList()
+                },
+
+                aggregateSubjects = {
+                    aggregateStub.countSubjects(
+                        queryAggregate(dataTypes.toSet(), subjectQuery, START_TIME, END_TIME)
+                    )
+                }
+            )
+        }
+    }
+
 }

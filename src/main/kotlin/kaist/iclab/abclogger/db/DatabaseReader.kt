@@ -1,184 +1,143 @@
 package kaist.iclab.abclogger.db
 
 import kaist.iclab.abclogger.common.Log
-import kaist.iclab.abclogger.common.aggregate
 import kaist.iclab.abclogger.schema.*
+
 import org.bson.conversions.Bson
 import org.litote.kmongo.*
 import org.litote.kmongo.coroutine.CoroutineAggregatePublisher
 import org.litote.kmongo.coroutine.CoroutineFindPublisher
+import org.litote.kmongo.coroutine.aggregate
 
-class DatabaseReader(private val database: Database) {
-    private fun buildDataFilter(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String,
-            email: String,
-            deviceInfo: String,
-            deviceId: String
-    ): Bson {
-        val timeRangeFilter = if (fromTimestamp != toTimestamp) {
-            and(Datum::timestamp gte fromTimestamp, Datum::timestamp lt toTimestamp)
-        } else {
-            and(Datum::timestamp gte 0, Datum::timestamp lt Long.MAX_VALUE)
-        }
-
-        val dataTypeFilter = if (dataType.isNotBlank()) {
-            Datum::dataType eq dataType
-        } else {
-            null
-        }
-
-        val emailFilter = if (email.isNotBlank()) {
-            Datum::email eq email
-        } else {
-            null
-        }
-
-        val deviceInfoFilter = if (deviceInfo.isNotBlank()) {
-            Datum::deviceInfo eq deviceInfo
-        } else {
-            null
-        }
-
-        val deviceIdFilter = if (deviceId.isNotBlank()) {
-            Datum::deviceId eq deviceId
-        } else {
-            null
-        }
-
-        return and(
-                listOfNotNull(
-                        timeRangeFilter,
-                        dataTypeFilter,
-                        emailFilter,
-                        deviceInfoFilter,
-                        deviceIdFilter
-                )
-        )
-    }
-
+class DatabaseReader(private val database: Database, private val batchSize: Int) {
     fun readData(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String,
-            email: String,
-            deviceInfo: String,
-            deviceId: String,
-            limit: Int,
-            isAscending: Boolean
+        fromTimestamp: Long,
+        toTimestamp: Long,
+        dataTypes: List<String> = listOf(),
+        groupNames: List<String> = listOf(),
+        emails: List<String> = listOf(),
+        instanceIds: List<String> = listOf(),
+        sources: List<String> = listOf(),
+        deviceManufacturers: List<String> = listOf(),
+        deviceModels: List<String> = listOf(),
+        deviceVersion: List<String> = listOf(),
+        deviceOses: List<String> = listOf(),
+        appIds: List<String> = listOf(),
+        appVersions: List<String> = listOf(),
+        limit: Int,
+        isAscending: Boolean
     ): CoroutineFindPublisher<Datum> = try {
-        val filter = buildDataFilter(
-                fromTimestamp, toTimestamp, dataType, email, deviceInfo, deviceId
+        val filter = dataFilter(
+            fromTimestamp,
+            toTimestamp,
+            dataTypes,
+            groupNames,
+            emails,
+            instanceIds,
+            sources,
+            deviceManufacturers,
+            deviceModels,
+            deviceVersion,
+            deviceOses,
+            appIds,
+            appVersions
         )
+
         val sort = if (isAscending) {
             ascending(Datum::timestamp)
         } else {
             descending(Datum::timestamp)
         }
 
-        database.collection<Datum>().find(filter).limit(limit).sort(sort)
+        database.collection<Datum>()
+            .find(filter)
+            .batchSize(batchSize)
+            .limit(limit)
+            .sort(sort)
     } catch (e: Exception) {
-        val params = mapOf(
-                "fromTimestamp" to fromTimestamp,
-                "toTimestamp" to toTimestamp,
-                "dataType" to dataType,
-                "email" to email,
-                "deviceInfo" to deviceInfo,
-                "deviceId" to deviceId,
-                "limit" to limit,
-                "isAscending" to isAscending
-        )
-        Log.error("DatabaseReader.readData(): $params", e)
+        Log.error("DatabaseReader.readData()", e)
         throw e
-    }
-
-    suspend fun countData(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String,
-            email: String,
-            deviceInfo: String,
-            deviceId: String
-    ): Long = try {
-        val filter = buildDataFilter(
-                fromTimestamp, toTimestamp, dataType, email, deviceInfo, deviceId
-        )
-        database.collection<Datum>().countDocuments(filter)
-    } catch (e: Exception) {
-        val params = mapOf(
-                "fromTimestamp" to fromTimestamp,
-                "toTimestamp" to toTimestamp,
-                "dataType" to dataType,
-                "email" to email,
-                "deviceInfo" to deviceInfo,
-                "deviceId" to deviceId
-        )
-        Log.error("DatabaseReader.countData(): $params", e)
-        throw e
-    }
-
-    private fun buildHeartBeatsFilter(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String,
-            email: String,
-            deviceInfo: String,
-            deviceId: String
-    ): Bson {
-        val timeRangeFilter = if (fromTimestamp != toTimestamp) {
-            and(HeartBeat::timestamp gte fromTimestamp, HeartBeat::timestamp lt toTimestamp)
-        } else {
-            and(HeartBeat::timestamp gte 0, HeartBeat::timestamp lt Long.MAX_VALUE)
-        }
-
-        val dataTypeFilter = if (dataType.isNotBlank()) {
-            HeartBeat::status elemMatch (Status::dataType eq dataType)
-        } else {
-            null
-        }
-
-        val emailFilter = if (email.isNotBlank()) {
-            HeartBeat::email eq email
-        } else {
-            null
-        }
-
-        val deviceInfoFilter = if (deviceInfo.isNotBlank()) {
-            HeartBeat::deviceInfo eq deviceInfo
-        } else {
-            null
-        }
-
-        val deviceIdFilter = if (deviceId.isNotBlank()) {
-            HeartBeat::deviceId eq deviceId
-        } else {
-            null
-        }
-
-        return and(
-                listOfNotNull(
-                        timeRangeFilter,
-                        dataTypeFilter,
-                        emailFilter,
-                        deviceInfoFilter,
-                        deviceIdFilter
-                )
-        )
     }
 
     fun readHeartBeats(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String,
-            email: String,
-            deviceInfo: String,
-            deviceId: String,
-            limit: Int,
-            isAscending: Boolean
+        fromTimestamp: Long,
+        toTimestamp: Long,
+        dataTypes: List<String> = listOf(),
+        groupNames: List<String> = listOf(),
+        emails: List<String> = listOf(),
+        instanceIds: List<String> = listOf(),
+        sources: List<String> = listOf(),
+        deviceManufacturers: List<String> = listOf(),
+        deviceModels: List<String> = listOf(),
+        deviceVersion: List<String> = listOf(),
+        deviceOses: List<String> = listOf(),
+        appIds: List<String> = listOf(),
+        appVersions: List<String> = listOf(),
+        limit: Int,
+        isAscending: Boolean
     ): CoroutineFindPublisher<HeartBeat> = try {
-        val filter = buildHeartBeatsFilter(
-                fromTimestamp, toTimestamp, dataType, email, deviceInfo, deviceId
+        val filter = heartBeatFilter(
+            fromTimestamp,
+            toTimestamp,
+            dataTypes,
+            groupNames,
+            emails,
+            instanceIds,
+            sources,
+            deviceManufacturers,
+            deviceModels,
+            deviceVersion,
+            deviceOses,
+            appIds,
+            appVersions
+        )
+
+        val sort = if (isAscending) {
+            ascending(HeartBeat::timestamp)
+        } else {
+            descending(HeartBeat::timestamp)
+        }
+        database.collection<HeartBeat>()
+            .find(filter)
+            .batchSize(batchSize)
+            .limit(limit)
+            .sort(sort)
+    } catch (e: Exception) {
+        Log.error("DatabaseReader.readHeartBeats() ", e)
+        throw e
+    }
+
+    fun readSubjects(
+        fromTimestamp: Long,
+        toTimestamp: Long,
+        dataTypes: List<String> = listOf(),
+        groupNames: List<String> = listOf(),
+        emails: List<String> = listOf(),
+        instanceIds: List<String> = listOf(),
+        sources: List<String> = listOf(),
+        deviceManufacturers: List<String> = listOf(),
+        deviceModels: List<String> = listOf(),
+        deviceVersion: List<String> = listOf(),
+        deviceOses: List<String> = listOf(),
+        appIds: List<String> = listOf(),
+        appVersions: List<String> = listOf(),
+        limit: Int,
+        isAscending: Boolean
+    ): CoroutineAggregatePublisher<Subject> = try {
+        val filter = heartBeatFilter(
+            fromTimestamp,
+            toTimestamp,
+            dataTypes,
+            groupNames,
+            emails,
+            instanceIds,
+            sources,
+            deviceManufacturers,
+            deviceModels,
+            deviceVersion,
+            deviceOses,
+            appIds,
+            appVersions
         )
 
         val sort = if (isAscending) {
@@ -187,152 +146,28 @@ class DatabaseReader(private val database: Database) {
             descending(HeartBeat::timestamp)
         }
 
-        val publisher = database.collection<HeartBeat>().find(filter).limit(limit).sort(sort)
-
-        val dataTypeFilter = if (dataType.isNotBlank()) {
-            HeartBeat::status elemMatch (Status::dataType eq dataType)
-        } else {
-            null
-        }
-
-        if (dataTypeFilter != null) {
-            publisher.projection(dataTypeFilter)
-        } else {
-            publisher
-        }
-    } catch (e : Exception) {
-        val params = mapOf(
-                "fromTimestamp" to fromTimestamp,
-                "toTimestamp" to toTimestamp,
-                "dataType" to dataType,
-                "email" to email,
-                "deviceInfo" to deviceInfo,
-                "deviceId" to deviceId,
-                "limit" to limit,
-                "isAscending" to isAscending
-        )
-        Log.error("DatabaseReader.readHeartBeats() - $params", e)
-        throw e
-    }
-
-    suspend fun countHeartBeats(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String,
-            email: String,
-            deviceInfo: String,
-            deviceId: String
-    ): Long = try {
-        val filter = buildHeartBeatsFilter(
-                fromTimestamp, toTimestamp, dataType, email, deviceInfo, deviceId
-        )
-
-        database.collection<HeartBeat>().countDocuments(filter)
-    } catch (e : Exception) {
-        val params = mapOf(
-                "fromTimestamp" to fromTimestamp,
-                "toTimestamp" to toTimestamp,
-                "dataType" to dataType,
-                "email" to email,
-                "deviceInfo" to deviceInfo,
-                "deviceId" to deviceId
-        )
-        Log.error("DatabaseReader.countHeartBeats() - $params", e)
-        throw e
-    }
-
-    private fun buildSubjectsFilter(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String
-    ): Bson {
-        val timeRangeFilter = if (fromTimestamp != toTimestamp) {
-            and(Datum::timestamp gte fromTimestamp, Datum::timestamp lt toTimestamp)
-        } else {
-            and(Datum::timestamp gte 0, Datum::timestamp lt Long.MAX_VALUE)
-        }
-        val dataTypeFilter = if (dataType.isNotBlank()) {
-            Datum::dataType eq dataType
-        } else {
-            null
-        }
-
-        return and(
-                listOfNotNull(
-                        timeRangeFilter,
-                        dataTypeFilter
+        database.collection<HeartBeat>().aggregate<Subject>(
+            match(filter),
+            group(
+                id = HeartBeat::subject,
+                fieldAccumulators = arrayOf(
+                    Subject::groupName first HeartBeat::subject / Subject::groupName,
+                    Subject::email first HeartBeat::subject / Subject::email,
+                    Subject::instanceId first HeartBeat::subject / Subject::instanceId,
+                    Subject::source first HeartBeat::subject / Subject::source,
+                    Subject::deviceManufacturer first HeartBeat::subject / Subject::deviceManufacturer,
+                    Subject::deviceModel first HeartBeat::subject / Subject::deviceModel,
+                    Subject::deviceVersion first HeartBeat::subject / Subject::deviceVersion,
+                    Subject::deviceOs first HeartBeat::subject / Subject::deviceOs,
+                    Subject::appId first HeartBeat::subject / Subject::appId,
+                    Subject::appVersion first HeartBeat::subject / Subject::appVersion
                 )
-        )
-    }
-
-
-    fun readSubjects(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String,
-            limit: Int,
-            isAscending: Boolean
-    ): CoroutineAggregatePublisher<Subject> = try {
-        val filter = buildSubjectsFilter(fromTimestamp, toTimestamp, dataType)
-
-        val sort = if (isAscending) {
-            ascending(Datum::timestamp)
-        } else {
-            descending(Datum::timestamp)
-        }
-
-        database.collection<Datum>().aggregate(
-                match(filter),
-                group(
-                        document(
-                                Datum::email from Datum::email,
-                                Datum::deviceInfo from Datum::deviceInfo,
-                                Datum::deviceId from Datum::deviceId
-                        ),
-                        Subject::email first Datum::email,
-                        Subject::deviceInfo first Datum::deviceInfo,
-                        Subject::deviceId first Datum::deviceId
-                ),
-                limit(limit),
-                sort(sort)
-        )
-
+            ),
+            limit(limit),
+            sort(sort)
+        ).allowDiskUse(true).batchSize(batchSize)
     } catch (e: Exception) {
-        val params = mapOf(
-                "fromTimestamp" to fromTimestamp,
-                "toTimestamp" to toTimestamp,
-                "dataType" to dataType,
-                "limit" to limit,
-                "isAscending" to isAscending
-        )
-        Log.error("DatabaseReader.readSubjects() - $params", e)
+        Log.error("DatabaseReader.readSubjects()", e)
         throw e
     }
-
-    suspend fun countSubjects(
-            fromTimestamp: Long,
-            toTimestamp: Long,
-            dataType: String
-    ): Long = try {
-        val filter = buildSubjectsFilter(fromTimestamp, toTimestamp, dataType)
-        database.collection<Datum>().aggregate<Subject>(
-                match(filter),
-                group(
-                        document(
-                                Datum::email from Datum::email,
-                                Datum::deviceInfo from Datum::deviceInfo,
-                                Datum::deviceId from Datum::deviceId
-                        )
-                )
-        ).toList().size.toLong()
-    } catch (e: Exception) {
-        val params = mapOf(
-                "fromTimestamp" to fromTimestamp,
-                "toTimestamp" to toTimestamp,
-                "dataType" to dataType
-        )
-        Log.error("DatabaseReader.readSubjects() - $params", e)
-        throw e
-    }
-
 }

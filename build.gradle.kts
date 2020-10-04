@@ -14,7 +14,7 @@ plugins {
 application {
     mainClassName = "kaist.iclab.abclogger.MainKt"
     group = "kaist.iclab.abclogger"
-    version = "0.9.6"
+    version = "0.9.7"
 }
 
 
@@ -83,14 +83,14 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_13
+    targetCompatibility = JavaVersion.VERSION_13
 }
 
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 
 compileKotlin.kotlinOptions {
-    jvmTarget = "1.8"
+    jvmTarget = "13"
 }
 
 val shadowJar: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar by tasks
@@ -124,7 +124,7 @@ protobuf {
 }
 
 tasks.register<Exec>("initMongoDb") {
-    commandLine("test-run.bat")
+    commandLine("./test/test-run.bat")
 }
 
 tasks.withType<Test> {

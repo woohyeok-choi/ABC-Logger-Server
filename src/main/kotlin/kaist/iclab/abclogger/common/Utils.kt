@@ -8,7 +8,7 @@ import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
-fun getOffsetDateTime(timeMillis: Long, offsetSec: Int? = null): OffsetDateTime {
+fun toOffsetDateTime(timeMillis: Long, offsetSec: Int? = null): OffsetDateTime {
     val zoneOffset = if (offsetSec != null) {
         ZoneOffset.ofTotalSeconds(offsetSec)
     } else {
@@ -19,6 +19,3 @@ fun getOffsetDateTime(timeMillis: Long, offsetSec: Int? = null): OffsetDateTime 
             localDateTime, zoneOffset
     )
 }
-
-inline fun <reified T : Any> CoroutineCollection<*>.aggregate(vararg pipeline: Bson): CoroutineAggregatePublisher<T> =
-        aggregate(pipeline.toList())
