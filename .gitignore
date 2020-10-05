@@ -27,3 +27,5 @@ hs_err_pid*
 build
 docker/docker-compose.yaml
 
+
+test/

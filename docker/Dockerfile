@@ -1,4 +1,4 @@
-FROM openjdk:8-jre-alpine
+FROM openjdk:13-alpine
 
 ENV APP_USER abclogger
 RUN adduser -D -g '' $APP_USER
@@ -16,9 +16,8 @@ ENV ADMIN_PASSWORD abclogger
 ENV ERROR_RECIPIENTS abclogger@abclogger
 ENV LOG_PATH /home/abclogger/logs
 
-RUN mkdir /home/abclogger
-RUN mkdir $LOG_PATH
-
+RUN mkdir -p /home/abclogger
+RUN mkdir -p $LOG_PATH
 RUN chown -R $APP_USER /home/abclogger
 
 USER $APP_USER
