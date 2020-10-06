@@ -1,11 +1,5 @@
 package kaist.iclab.abclogger
 
-import kaist.iclab.abclogger.schema.HeartBeat
-import org.litote.kmongo.from
-import kotlin.reflect.KProperty1
-import kotlin.reflect.full.declaredMemberProperties
-
-
 const val KEY_MONGO_SERVER_NAME = "MONGO_SERVER_NAME"
 const val KEY_MONGO_DB_NAME = "MONGO_DB_NAME"
 const val KEY_MONGO_ROOT_USER = "MONGO_ROOT_USER"

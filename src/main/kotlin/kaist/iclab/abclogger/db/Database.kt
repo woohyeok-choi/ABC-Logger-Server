@@ -16,6 +16,8 @@ import org.litote.kmongo.coroutine.CoroutineClient
 import org.litote.kmongo.coroutine.CoroutineDatabase
 import org.litote.kmongo.coroutine.coroutine
 import org.litote.kmongo.reactivestreams.KMongo
+import org.litote.kmongo.util.idValue
+import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicBoolean
 
 
@@ -40,10 +42,19 @@ class Database(
     inline fun <reified T : Any> collection() = database.getCollection<T>()
 
     suspend fun bind() {
-        Log.info("Database.bind() - begin binding.")
+        Log.info("Database.bind() - begin binding:${System.lineSeparator()}" +
+            "\tdbServerName=$dbServerName${System.lineSeparator()}" +
+            "\tdbName=$dbName${System.lineSeparator()}" +
+            "\trootUserName=$rootUserName${System.lineSeparator()}" +
+            "\trootPassword=$rootPassword${System.lineSeparator()}" +
+            "\twriterUserName=$writerUserName${System.lineSeparator()}" +
+            "\twriterUserPassword=$writerUserPassword${System.lineSeparator()}" +
+            "\treadUsers=$readUsers"
+        )
 
-        val rootConnStr = "mongodb://$rootUserName:$rootPassword@$dbServerName"
-        val writerConnStr = "mongodb://$writerUserName:$writerUserPassword@$dbServerName/$dbName"
+
+        val rootConnStr = getMongoUrl(rootUserName, rootPassword, dbServerName)
+        Log.info("Database.bind() - Try to connect to: $rootConnStr")
 
         KMongo.createClient(rootConnStr).coroutine.use { client ->
             val isConnected = checkConnection(client = client, dbName = dbName)
@@ -68,6 +79,9 @@ class Database(
                 )
             }
         }
+
+        val writerConnStr = getMongoUrl(writerUserName, writerUserPassword, dbServerName, dbName)
+        Log.info("Database.bind() - Try to connect $writerConnStr")
 
         val setting = MongoClientSettings.builder().apply {
             applyConnectionString(ConnectionString(writerConnStr))
@@ -97,7 +111,7 @@ class Database(
         Log.info("Database.bind() - complete binding.")
     }
 
-    suspend inline fun <reified T: Any> createIndex(index: Bson) {
+    suspend inline fun <reified T : Any> createIndex(index: Bson) {
         collection<T>().ensureIndex(index)
     }
 
@@ -140,7 +154,7 @@ class Database(
                         pwd: "$password",
                         roles: [
                             {
-                                role: "${if(isReadOnly) "read" else "readWrite"}",
+                                role: "${if (isReadOnly) "read" else "readWrite"}",
                                 db: "$dbName"
                             }
                         ]
@@ -157,13 +171,25 @@ class Database(
                             grantRolesToUser: "$userName",
                             roles: [
                                 {
-                                    role: "${if(isReadOnly) "read" else "readWrite"}",
+                                    role: "${if (isReadOnly) "read" else "readWrite"}",
                                     db: "$dbName"
                                 }
                             ]
                         }
                     """.trimIndent()
             )
+        }
+    }
+
+    private fun encode(str: String) = URLEncoder.encode(str, "utf-8")
+
+    private fun getMongoUrl(userName: String, password: String, dbServerName: String, dbName: String? = null): String {
+        val baseUrl = "mongodb://${encode(userName)}:${encode(password)}@${encode(dbServerName)}:27017"
+
+        return if (dbName.isNullOrBlank()) {
+            baseUrl
+        } else {
+            "$baseUrl/${encode(dbName)}"
         }
     }
 }

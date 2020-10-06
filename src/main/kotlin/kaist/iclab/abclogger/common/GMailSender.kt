@@ -10,6 +10,10 @@ class GMailSender(
         password: String,
         recipients: List<String>
 ) {
+    init {
+        Log.info("GmailSender initiated: email = $email, password = $password, recipients = $recipients")
+    }
+
     private val properties = Properties().apply {
         put("mail.smtp.host", "smtp.gmail.com")
         put("mail.smtp.port", "465")
