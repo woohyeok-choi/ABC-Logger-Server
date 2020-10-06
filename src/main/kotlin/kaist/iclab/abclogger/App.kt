@@ -25,7 +25,6 @@ class App {
     fun start(
         portNumber: Int,
         dbServerName: String,
-        dbPortNumber: Int,
         dbName: String,
         dbRootUserName: String,
         dbRootPassword: String,
@@ -51,8 +50,7 @@ class App {
             registerModule(Config.serializersModule)
 
             val database = Database(
-                serverName = dbServerName,
-                portNumber = dbPortNumber,
+                dbServerName = dbServerName,
                 dbName = dbName,
                 readUsers = dbReadUsers,
                 rootUserName = dbRootUserName,

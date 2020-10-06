@@ -5,26 +5,22 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.MongoCommandException
 import com.mongodb.MongoTimeoutException
-import com.mongodb.client.model.IndexOptions
 import com.mongodb.event.CommandFailedEvent
 import com.mongodb.event.CommandListener
 import com.mongodb.event.CommandStartedEvent
 import com.mongodb.event.CommandSucceededEvent
 import kaist.iclab.abclogger.common.Log
-import kaist.iclab.abclogger.schema.Datum
 import org.bson.Document
 import org.bson.conversions.Bson
 import org.litote.kmongo.coroutine.CoroutineClient
 import org.litote.kmongo.coroutine.CoroutineDatabase
 import org.litote.kmongo.coroutine.coroutine
-import org.litote.kmongo.index
 import org.litote.kmongo.reactivestreams.KMongo
 import java.util.concurrent.atomic.AtomicBoolean
 
 
 class Database(
-    private val serverName: String,
-    private val portNumber: Int,
+    private val dbServerName: String,
     private val dbName: String,
     private val rootUserName: String,
     private val rootPassword: String,
@@ -46,8 +42,8 @@ class Database(
     suspend fun bind() {
         Log.info("Database.bind() - begin binding.")
 
-        val rootConnStr = "mongodb://$rootUserName:$rootPassword@$serverName:$portNumber"
-        val writerConnStr = "mongodb://$writerUserName:$writerUserPassword@$serverName:$portNumber/$dbName"
+        val rootConnStr = "mongodb://$rootUserName:$rootPassword@$dbServerName"
+        val writerConnStr = "mongodb://$writerUserName:$writerUserPassword@$dbServerName/$dbName"
 
         KMongo.createClient(rootConnStr).coroutine.use { client ->
             val isConnected = checkConnection(client = client, dbName = dbName)

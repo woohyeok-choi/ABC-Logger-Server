@@ -7,7 +7,6 @@ import kotlin.reflect.full.declaredMemberProperties
 
 
 const val KEY_MONGO_SERVER_NAME = "MONGO_SERVER_NAME"
-const val KEY_MONGO_PORT_NUMBER = "MONGO_PORT_NUMBER"
 const val KEY_MONGO_DB_NAME = "MONGO_DB_NAME"
 const val KEY_MONGO_ROOT_USER = "MONGO_ROOT_USER"
 const val KEY_MONGO_ROOT_PASSWORD = "MONGO_ROOT_PASSWORD"
@@ -23,7 +22,6 @@ const val KEY_LOG_PATH = "LOG_PATH"
 
 fun main() {
     val dbServerName = System.getenv(KEY_MONGO_SERVER_NAME) ?: "localhost"
-    val dbPortNumber = System.getenv(KEY_MONGO_PORT_NUMBER)?.toIntOrNull() ?: 27017
     val dbName = System.getenv(KEY_MONGO_DB_NAME) ?: "data"
 
     val dbUserName = System.getenv(KEY_MONGO_ROOT_USER) ?: "mongo"
@@ -55,7 +53,6 @@ fun main() {
     app.start(
         portNumber = 50051,
         dbServerName = dbServerName,
-        dbPortNumber = dbPortNumber,
         dbName = dbName,
         dbRootUserName = dbUserName,
         dbRootPassword = dbPassword,
