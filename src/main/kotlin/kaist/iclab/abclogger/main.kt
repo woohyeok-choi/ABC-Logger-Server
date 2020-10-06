@@ -14,6 +14,8 @@ const val KEY_MONGO_ROOT_USER = "MONGO_ROOT_USER"
 const val KEY_MONGO_ROOT_PASSWORD = "MONGO_ROOT_PASSWORD"
 const val KEY_MONGO_WRITE_USER = "MONGO_WRITE_USER"
 const val KEY_MONGO_WRITE_PASSWORD = "MONGO_WRITE_PASSWORD"
+const val KEY_MONGO_READ_USERS = "MONGO_READ_USERS"
+const val KEY_MONGO_READ_PASSWORDS = "MONGO_READ_PASSWORDS"
 const val KEY_ADMIN_EMAIL = "ADMIN_EMAIL"
 const val KEY_ADMIN_PASSWORD = "ADMIN_PASSWORD"
 const val KEY_AUTH_TOKENS = "AUTH_TOKENS"
@@ -33,6 +35,18 @@ fun main() {
     val dbWriteUserName = System.getenv(KEY_MONGO_WRITE_USER) ?: dbUserName
     val dbWritePassword = System.getenv(KEY_MONGO_WRITE_PASSWORD) ?: dbPassword
 
+    val dbReadUserNames = System.getenv(KEY_MONGO_READ_USERS)?.split(";") ?: emptyList()
+    val dbReadUserPasswords = System.getenv(KEY_MONGO_READ_PASSWORDS)?.split("l") ?: emptyList()
+
+    val dbReadUsers: Map<String, String> =
+        when {
+            dbReadUserNames.isEmpty() || dbReadUserPasswords.isEmpty() ->
+                mapOf()
+            dbReadUserNames.size != dbReadUserPasswords.size ->
+                dbReadUserNames.associateWith { dbReadUserPasswords.firstOrNull() ?: dbPassword }
+            else -> dbReadUserNames.zip(dbReadUserPasswords).toMap()
+        }
+
     val adminEmail = System.getenv(KEY_ADMIN_EMAIL) ?: ""
     val adminPassword = System.getenv(KEY_ADMIN_PASSWORD) ?: ""
     val authTokens = System.getenv(KEY_AUTH_TOKENS)?.split(";") ?: emptyList()
@@ -50,6 +64,7 @@ fun main() {
         dbRootPassword = dbPassword,
         dbWriterUserName = dbWriteUserName,
         dbWriterUserPassword = dbWritePassword,
+        dbReadUsers = dbReadUsers,
         adminEmail = adminEmail,
         adminPassword = adminPassword,
         recipients = errorRecipients,

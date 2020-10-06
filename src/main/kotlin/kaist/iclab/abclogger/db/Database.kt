@@ -29,7 +29,8 @@ class Database(
     private val rootUserName: String,
     private val rootPassword: String,
     private val writerUserName: String = rootUserName,
-    private val writerUserPassword: String = rootPassword
+    private val writerUserPassword: String = rootPassword,
+    private val readUsers: Map<String, String> = mapOf()
 ) {
     private var isBound: AtomicBoolean = AtomicBoolean(false)
     private lateinit var client: CoroutineClient
@@ -57,9 +58,21 @@ class Database(
                 client = client,
                 dbName = dbName,
                 userName = writerUserName,
-                password = writerUserPassword
+                password = writerUserPassword,
+                isReadOnly = false
             )
+
+            readUsers.entries.forEach { (userName, password) ->
+                createOrUpdateUser(
+                    client = client,
+                    dbName = dbName,
+                    userName = userName,
+                    password = password,
+                    isReadOnly = true
+                )
+            }
         }
+
         val setting = MongoClientSettings.builder().apply {
             applyConnectionString(ConnectionString(writerConnStr))
             addCommandListener(object : CommandListener {
@@ -118,7 +131,8 @@ class Database(
         client: CoroutineClient,
         dbName: String,
         userName: String,
-        password: String
+        password: String,
+        isReadOnly: Boolean
     ) {
         val database = client.getDatabase(dbName)
 
@@ -130,7 +144,7 @@ class Database(
                         pwd: "$password",
                         roles: [
                             {
-                                role: "readWrite",
+                                role: "${if(isReadOnly) "read" else "readWrite"}",
                                 db: "$dbName"
                             }
                         ]
@@ -147,7 +161,7 @@ class Database(
                             grantRolesToUser: "$userName",
                             roles: [
                                 {
-                                    role: "readWrite",
+                                    role: "${if(isReadOnly) "read" else "readWrite"}",
                                     db: "$dbName"
                                 }
                             ]

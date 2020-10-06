@@ -31,6 +31,10 @@ fun app(): App {
         dbRootUserName = "admin",
         dbWriterUserName = "abcwriter",
         dbWriterUserPassword = "abcwriter",
+        dbReadUsers = mapOf(
+            "abcreader" to "abcreader",
+            "abcreader2" to "abcreader2"
+        ),
         adminEmail = "",
         adminPassword = "",
         recipients = emptyList(),
