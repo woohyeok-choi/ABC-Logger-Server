@@ -6,7 +6,6 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 
 
-const val KEY_PORT_NUMBER = "PORT_NUMBER"
 const val KEY_MONGO_SERVER_NAME = "MONGO_SERVER_NAME"
 const val KEY_MONGO_PORT_NUMBER = "MONGO_PORT_NUMBER"
 const val KEY_MONGO_DB_NAME = "MONGO_DB_NAME"
@@ -23,8 +22,6 @@ const val KEY_ERROR_RECIPIENTS = "ERROR_RECIPIENTS"
 const val KEY_LOG_PATH = "LOG_PATH"
 
 fun main() {
-    val portNumber = System.getenv(KEY_PORT_NUMBER)?.toIntOrNull() ?: 50051
-
     val dbServerName = System.getenv(KEY_MONGO_SERVER_NAME) ?: "localhost"
     val dbPortNumber = System.getenv(KEY_MONGO_PORT_NUMBER)?.toIntOrNull() ?: 27017
     val dbName = System.getenv(KEY_MONGO_DB_NAME) ?: "data"
@@ -56,7 +53,7 @@ fun main() {
     val app = App()
 
     app.start(
-        portNumber = portNumber,
+        portNumber = 50051,
         dbServerName = dbServerName,
         dbPortNumber = dbPortNumber,
         dbName = dbName,
