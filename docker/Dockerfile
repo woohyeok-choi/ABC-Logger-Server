@@ -22,8 +22,8 @@ RUN chown -R $APP_USER /home/abclogger
 
 USER $APP_USER
 
-COPY ./jars/abc-logger-server-0.9.7-all.jar /home/abclogger/abc-logger-server-0.9.7-all.jar
+COPY ./jars/abc-logger-server-0.9.7-all.jar /home/abclogger/abc-logger-server.jar
 
 WORKDIR /home/abclogger
 
-CMD ["java", "-server", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:InitialRAMFraction=2", "-XX:MinRAMFraction=2", "-XX:MaxRAMFraction=2", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-XX:+UseStringDeduplication", "-jar", "abc-logger-server-0.9.4-all.jar"]
+CMD ["java", "-server", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:InitialRAMFraction=2", "-XX:MinRAMFraction=2", "-XX:MaxRAMFraction=2", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-XX:+UseStringDeduplication", "-jar", "abc-logger-server.jar"]
