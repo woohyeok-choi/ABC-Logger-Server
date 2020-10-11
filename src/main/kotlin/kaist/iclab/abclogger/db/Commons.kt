@@ -17,7 +17,7 @@ infix fun KProperty<Long?>.between(range: LongRange) = if (range.first != range.
 } else {
     and(
         this gte 0,
-        this lt Long.MAX_VALUE
+        this lte Long.MAX_VALUE
     )
 }
 
@@ -39,7 +39,7 @@ fun dataFilter(
     appVersions: List<String> = listOf(),
     isMd5Encrypted: Boolean
 ): Bson {
-    val filterTimeRange = Datum::timestamp between (fromTimestamp until toTimestamp)
+    val filterTimeRange = Datum::timestamp between (fromTimestamp..toTimestamp)
 
     val filterDataType = Datum::datumType nullableIn dataTypes
 
@@ -79,7 +79,7 @@ fun heartBeatFilter(
     appVersions: List<String> = listOf(),
     isMd5Encrypted: Boolean
 ): Bson {
-    val filterTimeRange = HeartBeat::timestamp between (fromTimestamp until toTimestamp)
+    val filterTimeRange = HeartBeat::timestamp between (fromTimestamp..toTimestamp)
 
     val filterDataType = HeartBeat::dataStatus / DataStatus::datumType nullableIn  dataTypes
 
