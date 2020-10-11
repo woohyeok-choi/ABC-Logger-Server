@@ -4,6 +4,7 @@ import kaist.iclab.abclogger.db.DatabaseAggregator
 import kaist.iclab.abclogger.grpc.proto.AggregationProtos
 import kaist.iclab.abclogger.grpc.service.AggregateOperationsGrpcKt
 import kaist.iclab.abclogger.grpc.service.ServiceProtos
+import kaist.iclab.abclogger.interceptor.AuthInterceptor
 import kaist.iclab.abclogger.schema.Group
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
@@ -12,8 +13,10 @@ class AggregateOperations(
     private val aggregator: DatabaseAggregator,
     context: CoroutineContext = EmptyCoroutineContext
 ) : AggregateOperationsGrpcKt.AggregateOperationsCoroutineImplBase(context) {
-    override suspend fun countSubjects(request: ServiceProtos.Query.Aggregate): AggregationProtos.Aggregation =
-        aggregator.countSubjects(
+    override suspend fun countSubjects(request: ServiceProtos.Query.Aggregate): AggregationProtos.Aggregation {
+        val isMd5Hashed = AuthInterceptor.IS_MD5_HASHED.get() == true
+
+        return aggregator.countSubjects(
             fromTimestamp = request.fromTimestamp,
             toTimestamp = request.toTimestamp,
             dataTypes = request.datumTypeList.map { it.name },
@@ -27,16 +30,20 @@ class AggregateOperations(
             deviceOses = request.deviceOsList,
             appIds = request.appIdList,
             appVersions = request.appVersionList,
+            isMd5Hashed = isMd5Hashed
         ).toList().map { group ->
-            Group.toProto(group)
+            Group.toProto(group, isMd5Hashed)
         }.let { groups ->
             AggregationProtos.Aggregation.newBuilder().apply {
                 addAllGroup(groups)
             }.build()
         }
+    }
 
-    override suspend fun countData(request: ServiceProtos.Query.Aggregate): AggregationProtos.Aggregation =
-        aggregator.countData(
+    override suspend fun countData(request: ServiceProtos.Query.Aggregate): AggregationProtos.Aggregation {
+        val isMd5Hashed = AuthInterceptor.IS_MD5_HASHED.get() == true
+
+        return aggregator.countData(
             fromTimestamp = request.fromTimestamp,
             toTimestamp = request.toTimestamp,
             dataTypes = request.datumTypeList.map { it.name },
@@ -50,12 +57,13 @@ class AggregateOperations(
             deviceOses = request.deviceOsList,
             appIds = request.appIdList,
             appVersions = request.appVersionList,
+            isMd5Hashed = isMd5Hashed
         ).toList().map { group ->
-            Group.toProto(group)
-        }.let { groups->
+            Group.toProto(group, isMd5Hashed)
+        }.let { groups ->
             AggregationProtos.Aggregation.newBuilder().apply {
                 addAllGroup(groups)
             }.build()
         }
-
+    }
 }

@@ -17,13 +17,13 @@ data class HeartBeat(
     @Contextual
     val offsetTimestamp: OffsetDateTime? = null
 ) {
-    companion object : ProtoSerializer<HeartBeat, HeartBeatProtos.HeartBeat> {
-        override fun toProto(o: HeartBeat): HeartBeatProtos.HeartBeat =
+    companion object : TwoWaySerializer<HeartBeat, HeartBeatProtos.HeartBeat> {
+        override fun toProto(o: HeartBeat, isMd5Hashed: Boolean): HeartBeatProtos.HeartBeat =
             HeartBeatProtos.HeartBeat.newBuilder().apply {
                 timestamp = o.timestamp ?: UNKNOWN_LONG
                 utcOffsetSec = o.utcOffsetSec ?: UNKNOWN_INT
-                subject = o.subject?.let { Subject.toProto(it) } ?: SubjectProtos.Subject.getDefaultInstance()
-                addAllDataStatus(o.dataStatus.map { DataStatus.toProto(it)})
+                subject = o.subject?.let { Subject.toProto(it, isMd5Hashed) } ?: SubjectProtos.Subject.getDefaultInstance()
+                addAllDataStatus(o.dataStatus.map { DataStatus.toProto(it, isMd5Hashed)})
             }.build()
 
         override fun toObject(p: HeartBeatProtos.HeartBeat): HeartBeat =
@@ -52,17 +52,17 @@ data class DataStatus(
     val error: String? = null,
     val others: Map<String, String> = mapOf()
 ) {
-    companion object : ProtoSerializer<DataStatus, HeartBeatProtos.DataStatus> {
-        override fun toProto(o: DataStatus): HeartBeatProtos.DataStatus =
+    companion object : TwoWaySerializer<DataStatus, HeartBeatProtos.DataStatus> {
+        override fun toProto(o: DataStatus, isMd5Hashed: Boolean): HeartBeatProtos.DataStatus =
             HeartBeatProtos.DataStatus.newBuilder().apply {
                 name = o.name
                 qualifiedName = o.qualifiedName
-                datumType = safeEnumValuesOf(o.datumType, DatumProtos.Datum.Type.UNRECOGNIZED)
+                datumType = safeEnumValuesOf(o.datumType, DatumProtos.DatumType.UNRECOGNIZED)
                 turnedOnTime = o.turnedOnTime ?: UNKNOWN_LONG
                 lastTimeWritten = o.lastTimeWritten ?: UNKNOWN_LONG
                 recordsCollected = o.recordsCollected ?: UNKNOWN_LONG
                 recordsUploaded = o.recordsUploaded ?: UNKNOWN_LONG
-                operation = safeEnumValuesOf(o.operation, HeartBeatProtos.DataStatus.Operation.UNRECOGNIZED)
+                operation = safeEnumValuesOf(o.operation, HeartBeatProtos.Operation.UNRECOGNIZED)
                 error = o.error ?: UNKNOWN_STRING
                 putAllOthers(o.others)
             }.build()

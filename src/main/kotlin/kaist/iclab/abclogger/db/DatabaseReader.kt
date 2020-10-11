@@ -3,7 +3,6 @@ package kaist.iclab.abclogger.db
 import kaist.iclab.abclogger.common.Log
 import kaist.iclab.abclogger.schema.*
 
-import org.bson.conversions.Bson
 import org.litote.kmongo.*
 import org.litote.kmongo.coroutine.CoroutineAggregatePublisher
 import org.litote.kmongo.coroutine.CoroutineFindPublisher
@@ -25,7 +24,8 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
         limit: Int,
-        isAscending: Boolean
+        isAscending: Boolean,
+        isMd5Hashed: Boolean
     ): CoroutineFindPublisher<Datum> = try {
         val filter = dataFilter(
             fromTimestamp,
@@ -40,7 +40,8 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
             deviceVersion,
             deviceOses,
             appIds,
-            appVersions
+            appVersions,
+            isMd5Hashed
         )
 
         val sort = if (isAscending) {
@@ -74,7 +75,8 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
         limit: Int,
-        isAscending: Boolean
+        isAscending: Boolean,
+        isMd5Hashed: Boolean
     ): CoroutineFindPublisher<HeartBeat> = try {
         val filter = heartBeatFilter(
             fromTimestamp,
@@ -89,7 +91,8 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
             deviceVersion,
             deviceOses,
             appIds,
-            appVersions
+            appVersions,
+            isMd5Hashed
         )
 
         val sort = if (isAscending) {
@@ -122,7 +125,8 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
         limit: Int,
-        isAscending: Boolean
+        isAscending: Boolean,
+        isMd5Hashed: Boolean
     ): CoroutineAggregatePublisher<Subject> = try {
         val filter = heartBeatFilter(
             fromTimestamp,
@@ -137,7 +141,8 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
             deviceVersion,
             deviceOses,
             appIds,
-            appVersions
+            appVersions,
+            isMd5Hashed
         )
 
         val sort = if (isAscending) {
@@ -153,6 +158,7 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
                 fieldAccumulators = arrayOf(
                     Subject::groupName first HeartBeat::subject / Subject::groupName,
                     Subject::email first HeartBeat::subject / Subject::email,
+                    Subject::hashedEmail first HeartBeat::subject / Subject::hashedEmail,
                     Subject::instanceId first HeartBeat::subject / Subject::instanceId,
                     Subject::source first HeartBeat::subject / Subject::source,
                     Subject::deviceManufacturer first HeartBeat::subject / Subject::deviceManufacturer,

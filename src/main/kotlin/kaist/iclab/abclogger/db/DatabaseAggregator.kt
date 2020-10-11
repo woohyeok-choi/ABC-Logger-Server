@@ -22,6 +22,7 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
         deviceOses: List<String> = listOf(),
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
+        isMd5Hashed: Boolean
     ): CoroutineAggregatePublisher<Group> = try {
         val filter = dataFilter(
             fromTimestamp,
@@ -36,7 +37,8 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
             deviceVersion,
             deviceOses,
             appIds,
-            appVersions
+            appVersions,
+            isMd5Hashed
         )
 
         database.collection<Datum>().aggregate<Group>(
@@ -72,6 +74,7 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
         deviceOses: List<String> = listOf(),
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
+        isMd5Hashed: Boolean
     ): CoroutineAggregatePublisher<Group> = try {
         val filter = heartBeatFilter(
             fromTimestamp,
@@ -86,7 +89,8 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
             deviceVersion,
             deviceOses,
             appIds,
-            appVersions
+            appVersions,
+            isMd5Hashed
         )
 
         database.collection<HeartBeat>().aggregate<Group>(

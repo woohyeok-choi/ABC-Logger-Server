@@ -16,8 +16,8 @@ import java.util.concurrent.TimeUnit
 private const val START_TIME = 0L
 private const val END_TIME = 400L
 private val TIME_RANGE = START_TIME until END_TIME
-private val DATA_TYPES = DatumProtos.Datum.Type.values().filter {
-    it != DatumProtos.Datum.Type.ALL && it != DatumProtos.Datum.Type.UNRECOGNIZED
+private val DATA_TYPES = DatumProtos.DatumType.values().filter {
+    it != DatumProtos.DatumType.ALL && it != DatumProtos.DatumType.UNRECOGNIZED
 }
 
 class TestDataConsistency : StringSpec() {
@@ -63,12 +63,12 @@ class TestDataConsistency : StringSpec() {
         checkHeartBeatConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)
     }
 
-    private fun checkConsistencyForDataType(dataType: DatumProtos.Datum.Type) {
+    private fun checkConsistencyForDataType(dataType: DatumProtos.DatumType) {
         "Check a Consistency for Data $dataType" {
             val subject = SubjectProtos.Subject.newBuilder().apply {
                 this.groupName = "group0"
                 this.email = "email0"
-                this.instanceId = "instanceid0"
+                this.instanceId = "한글테스트됨?"
                 this.source = "source0"
                 this.deviceManufacturer = "manufacturer0"
                 this.deviceVersion = "version0"
@@ -107,7 +107,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkDataConsistencyForCreateDatum(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check Consistencies for CreateDatum" {
@@ -153,7 +153,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkDataConsistencyForCreateData(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check Consistencies for CreateData" {
@@ -199,7 +199,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkDataConsistencyForCreateDataAsStream(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check Consistencies for CreateDataAsStream" {
@@ -245,7 +245,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkDataConsistencyForCreateDataAsStreamAndReadDataAsStream(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check Consistencies for CreateDataAsStreamAndReadDataAsStream" {
@@ -277,7 +277,6 @@ class TestDataConsistency : StringSpec() {
                     data
                 },
                 read = {
-                    val deque = ConcurrentLinkedQueue<DatumProtos.Datum>()
                     dataStub.readDataAsStream(
                         queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
                     ).toList()
@@ -292,7 +291,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkDataConsistencyForQueryingSharedFields(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check Consistencies for Querying Shared Fields" {
@@ -366,7 +365,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkDataConsistencyForQueryingMultipleFields(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check Consistencies for Querying Multiple Fields" {
@@ -447,7 +446,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkHeartBeatConsistencyForEachDataType(
-        dataType: DatumProtos.Datum.Type,
+        dataType: DatumProtos.DatumType,
         timeRange: LongRange
     ) {
         "Check a Consistency for HeartBeat $dataType" {
@@ -499,7 +498,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkHeartBeatConsistencyForMultipleDataTypes(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check a Consistency for HeartBeat with Multiple Data Types" {
@@ -548,7 +547,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkHeartBeatConsistencyForQueryingSharedFields(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check a Consistency for HeartBeat with Querying Shared Fields" {
@@ -625,7 +624,7 @@ class TestDataConsistency : StringSpec() {
     }
 
     private fun checkHeartBeatConsistencyForQueryingMultipleFields(
-        dataTypes: Collection<DatumProtos.Datum.Type>,
+        dataTypes: Collection<DatumProtos.DatumType>,
         timeRange: LongRange
     ) {
         "Check a Consistency for HeartBeat with Querying Multiple Fields" {

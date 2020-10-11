@@ -36,7 +36,8 @@ fun dataFilter(
     deviceVersion: List<String> = listOf(),
     deviceOses: List<String> = listOf(),
     appIds: List<String> = listOf(),
-    appVersions: List<String> = listOf()
+    appVersions: List<String> = listOf(),
+    isMd5Encrypted: Boolean
 ): Bson {
     val filterTimeRange = Datum::timestamp between (fromTimestamp until toTimestamp)
 
@@ -44,7 +45,11 @@ fun dataFilter(
 
     val filterSubjects = and(
         Datum::subject / Subject::groupName nullableIn groupNames,
-        Datum::subject / Subject::email nullableIn emails,
+        if (isMd5Encrypted) {
+            Datum::subject / Subject::hashedEmail nullableIn emails
+        } else {
+            Datum::subject / Subject::email nullableIn emails
+        },
         Datum::subject / Subject::instanceId nullableIn instanceIds,
         Datum::subject / Subject::source nullableIn sources,
         Datum::subject / Subject::deviceManufacturer nullableIn deviceManufacturers,
@@ -71,7 +76,8 @@ fun heartBeatFilter(
     deviceVersion: List<String> = listOf(),
     deviceOses: List<String> = listOf(),
     appIds: List<String> = listOf(),
-    appVersions: List<String> = listOf()
+    appVersions: List<String> = listOf(),
+    isMd5Encrypted: Boolean
 ): Bson {
     val filterTimeRange = HeartBeat::timestamp between (fromTimestamp until toTimestamp)
 
@@ -79,7 +85,11 @@ fun heartBeatFilter(
 
     val filterSubjects = and(
         HeartBeat::subject / Subject::groupName nullableIn groupNames,
-        HeartBeat::subject / Subject::email nullableIn emails,
+        if (isMd5Encrypted) {
+            HeartBeat::subject / Subject::hashedEmail nullableIn emails
+        } else {
+            HeartBeat::subject / Subject::email nullableIn emails
+        },
         HeartBeat::subject / Subject::instanceId nullableIn instanceIds,
         HeartBeat::subject / Subject::source nullableIn sources,
         HeartBeat::subject / Subject::deviceManufacturer nullableIn deviceManufacturers,

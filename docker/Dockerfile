@@ -15,14 +15,16 @@ ENV ADMIN_EMAIL abclogger@abclogger
 ENV ADMIN_PASSWORD abclogger
 ENV ERROR_RECIPIENTS abclogger@abclogger
 ENV LOG_PATH /home/abclogger/logs
+ENV LEGACY_DATA_PATH /home/abclogger/legacy
 
 RUN mkdir -p /home/abclogger
+RUN mkdir -p $LEGACY_DATA_PATH
 RUN mkdir -p $LOG_PATH
 RUN chown -R $APP_USER /home/abclogger
 
 USER $APP_USER
 
-COPY ./jars/abc-logger-server-1.0.0-all.jar /home/abclogger/abc-logger-server.jar
+COPY ./jars/abc-logger-server-1.1.0-all.jar /home/abclogger/abc-logger-server.jar
 
 WORKDIR /home/abclogger
 

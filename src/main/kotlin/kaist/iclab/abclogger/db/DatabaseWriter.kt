@@ -23,7 +23,7 @@ class DatabaseWriter(private val database: Database) {
     ).asFlow()
 
     private val heartBeatFlow = heartBeatBuffer.buffer(
-        10, TimeUnit.SECONDS
+        5, TimeUnit.SECONDS
     ).toFlowable(
         BackpressureStrategy.BUFFER
     ).asFlow()
@@ -62,5 +62,17 @@ class DatabaseWriter(private val database: Database) {
 
     fun write(heartBeat: HeartBeat) {
         heartBeatBuffer.onNext(heartBeat)
+    }
+
+    fun writeData(data: List<Datum>) {
+        scope.launch {
+            database.collection<Datum>().insertMany(data)
+        }
+    }
+
+    fun writeHeartBeats(heartBeats: List<HeartBeat>){
+        scope.launch {
+            database.collection<HeartBeat>().insertMany(heartBeats)
+        }
     }
 }

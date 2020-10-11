@@ -25,7 +25,6 @@ fun app(): App {
     app.start(
         portNumber = 50051,
         dbServerName = "localhost",
-        dbPortNumber = 27017,
         dbName = "data",
         dbRootPassword = "admin",
         dbRootUserName = "admin",
@@ -39,7 +38,8 @@ fun app(): App {
         adminPassword = "",
         recipients = emptyList(),
         logPath = "./test/log.log",
-        authTokens = emptyList()
+        rootTokens = emptyList(),
+        readOnlyTokens = listOf()
     )
 
     return app
@@ -48,12 +48,13 @@ fun app(): App {
 fun channel()  = ManagedChannelBuilder.forAddress("localhost", 50051)
     .directExecutor()
     .usePlaintext()
+    .intercept(clientInterceptor("auth_token", "read-only-token"))
     .build()
 
 
 
 fun datum(
-    datumType: DatumProtos.Datum.Type,
+    datumType: DatumProtos.DatumType,
     timestamp: Long,
     subject: SubjectProtos.Subject,
 ) = DatumProtos.Datum.newBuilder().apply {
@@ -61,43 +62,43 @@ fun datum(
     this.subject = subject
 
     when (datumType) {
-        DatumProtos.Datum.Type.PHYSICAL_ACTIVITY_TRANSITION ->
+        DatumProtos.DatumType.PHYSICAL_ACTIVITY_TRANSITION ->
             this.physicalActivityTransition = DatumProtos.PhysicalActivityTransition.newBuilder().fill()
-        DatumProtos.Datum.Type.PHYSICAL_ACTIVITY ->
+        DatumProtos.DatumType.PHYSICAL_ACTIVITY ->
             this.physicalActivity = DatumProtos.PhysicalActivity.newBuilder().fill()
-        DatumProtos.Datum.Type.APP_USAGE_EVENT ->
+        DatumProtos.DatumType.APP_USAGE_EVENT ->
             this.appUsageEvent = DatumProtos.AppUsageEvent.newBuilder().fill()
-        DatumProtos.Datum.Type.BATTERY ->
+        DatumProtos.DatumType.BATTERY ->
             this.battery = DatumProtos.Battery.newBuilder().fill()
-        DatumProtos.Datum.Type.BLUETOOTH ->
+        DatumProtos.DatumType.BLUETOOTH ->
             this.bluetooth = DatumProtos.Bluetooth.newBuilder().fill()
-        DatumProtos.Datum.Type.CALL_LOG ->
+        DatumProtos.DatumType.CALL_LOG ->
             this.callLog = DatumProtos.CallLog.newBuilder().fill()
-        DatumProtos.Datum.Type.DEVICE_EVENT ->
+        DatumProtos.DatumType.DEVICE_EVENT ->
             this.deviceEvent = DatumProtos.DeviceEvent.newBuilder().fill()
-        DatumProtos.Datum.Type.EMBEDDED_SENSOR ->
+        DatumProtos.DatumType.EMBEDDED_SENSOR ->
             this.embeddedSensor = DatumProtos.EmbeddedSensor.newBuilder().fill()
-        DatumProtos.Datum.Type.EXTERNAL_SENSOR ->
+        DatumProtos.DatumType.EXTERNAL_SENSOR ->
             this.externalSensor = DatumProtos.ExternalSensor.newBuilder().fill()
-        DatumProtos.Datum.Type.INSTALLED_APP ->
+        DatumProtos.DatumType.INSTALLED_APP ->
             this.installedApp = DatumProtos.InstalledApp.newBuilder().fill()
-        DatumProtos.Datum.Type.KEY_LOG ->
+        DatumProtos.DatumType.KEY_LOG ->
             this.keyLog = DatumProtos.KeyLog.newBuilder().fill()
-        DatumProtos.Datum.Type.LOCATION ->
+        DatumProtos.DatumType.LOCATION ->
             this.location = DatumProtos.Location.newBuilder().fill()
-        DatumProtos.Datum.Type.MEDIA ->
+        DatumProtos.DatumType.MEDIA ->
             this.media = DatumProtos.Media.newBuilder().fill()
-        DatumProtos.Datum.Type.MESSAGE ->
+        DatumProtos.DatumType.MESSAGE ->
             this.message = DatumProtos.Message.newBuilder().fill()
-        DatumProtos.Datum.Type.NOTIFICATION ->
+        DatumProtos.DatumType.NOTIFICATION ->
             this.notification = DatumProtos.Notification.newBuilder().fill()
-        DatumProtos.Datum.Type.FITNESS ->
+        DatumProtos.DatumType.FITNESS ->
             this.fitness = DatumProtos.Fitness.newBuilder().fill()
-        DatumProtos.Datum.Type.SURVEY ->
+        DatumProtos.DatumType.SURVEY ->
             this.survey = DatumProtos.Survey.newBuilder().fill()
-        DatumProtos.Datum.Type.DATA_TRAFFIC ->
+        DatumProtos.DatumType.DATA_TRAFFIC ->
             this.dataTraffic = DatumProtos.DataTraffic.newBuilder().fill()
-        DatumProtos.Datum.Type.WIFI ->
+        DatumProtos.DatumType.WIFI ->
             this.wifi = DatumProtos.Wifi.newBuilder().fill()
         else -> {
         }
@@ -108,7 +109,7 @@ fun datum(
 fun heartBeat(
     timestamp: Long,
     subject: SubjectProtos.Subject,
-    dataTypes: Collection<DatumProtos.Datum.Type>
+    dataTypes: Collection<DatumProtos.DatumType>
 ) = HeartBeatProtos.HeartBeat.newBuilder().apply {
     this.timestamp = timestamp
     this.subject = subject
@@ -144,7 +145,7 @@ private fun <T : Message, B : GeneratedMessageV3.Builder<B>> B.fill(block: (B.()
 }
 
 fun queryRead(
-    dataTypes: Set<DatumProtos.Datum.Type>,
+    dataTypes: Set<DatumProtos.DatumType>,
     subjects: Set<SubjectProtos.Subject>,
     fromTimestamp: Long,
     toTimestamp: Long
@@ -165,7 +166,7 @@ fun queryRead(
 }.build()
 
 fun queryAggregate(
-    dataTypes: Set<DatumProtos.Datum.Type>,
+    dataTypes: Set<DatumProtos.DatumType>,
     subjects: Set<SubjectProtos.Subject>,
     fromTimestamp: Long,
     toTimestamp: Long
@@ -230,7 +231,7 @@ suspend fun TestContext.testCreateAndReadDatum(
     realData shouldContainAllExactly originalData
     originalData shouldHaveSize aggregation.groupList.sumOf { it.value }.toInt()
 
-    val groupByCount = realData.fold(mutableMapOf<Pair<DatumProtos.Datum.Type, SubjectProtos.Subject>, Double>()) { acc, datum ->
+    val groupByCount = realData.fold(mutableMapOf<Pair<DatumProtos.DatumType, SubjectProtos.Subject>, Double>()) { acc, datum ->
         val key = dataCaseToDataType(datum.dataCase) to datum.subject
         val value = acc[key] ?: 0.0
         acc[key] = value + 1
@@ -253,7 +254,7 @@ suspend fun TestContext.testCreateAndReadHeartBeat(
 ) {
     val originalHeartBeats = createHeartBeats.invoke()
     val originalSubjects = originalHeartBeats.fold(
-        mutableMapOf<DatumProtos.Datum.Type, Set<SubjectProtos.Subject>>()
+        mutableMapOf<DatumProtos.DatumType, Set<SubjectProtos.Subject>>()
     ) { acc, heartBeat ->
         heartBeat.dataStatusList.forEach { collector ->
             val key = collector.datumType

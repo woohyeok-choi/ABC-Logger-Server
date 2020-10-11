@@ -2,7 +2,9 @@ package kaist.iclab.abclogger.interceptor
 
 import io.grpc.*
 
-class AuthInterceptor(private val authTokens: Set<String>) : ServerInterceptor {
+class AuthInterceptor(private val rootTokens: Set<String>, private val readOnlyTokens: Set<String>) : ServerInterceptor {
+    private val allTokens = rootTokens + readOnlyTokens
+
     override fun <ReqT : Any?, RespT : Any?> interceptCall(
         call: ServerCall<ReqT, RespT>?,
         headers: Metadata?,
@@ -10,17 +12,24 @@ class AuthInterceptor(private val authTokens: Set<String>) : ServerInterceptor {
 
         val authToken = headers?.get(Metadata.Key.of(AUTH_TOKEN, Metadata.ASCII_STRING_MARSHALLER))
 
-        val listener = if (authTokens.isNotEmpty() && authToken !in authTokens) {
-            call?.close(Status.UNAUTHENTICATED, Metadata())
-            null
+        return if (allTokens.isNotEmpty() && authToken !in allTokens) {
+            call?.close(Status.UNAUTHENTICATED.withDescription("Unauthenticated request. " +
+                "Any request should have a field, $AUTH_TOKEN, with a valid token." +
+                "Please ask related information to abc.logger@kse.kaist.ac.kr"), Metadata())
+            object : ServerCall.Listener<ReqT>() { }
         } else {
-            next?.startCall(call, headers)
-        }
+            val isReadOnly = authToken in readOnlyTokens
+            val context = Context.current().withValue(IS_MD5_HASHED, isReadOnly)
 
-        return listener ?: object : ServerCall.Listener<ReqT>() { }
+            Contexts.interceptCall(
+                context, call, headers, next
+            )
+        }
     }
 
     companion object {
-        const val AUTH_TOKEN = "auth_token"
+        private const val AUTH_TOKEN = "auth_token"
+        private const val KEY_IS_MD5_ENCRYPTED = "IS_MD5_ENCRYPTED"
+        val IS_MD5_HASHED: Context.Key<Boolean> = Context.key(KEY_IS_MD5_ENCRYPTED)
     }
 }

@@ -1,5 +1,7 @@
 package kaist.iclab.abclogger
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+
 const val KEY_MONGO_SERVER_NAME = "MONGO_SERVER_NAME"
 const val KEY_MONGO_DB_NAME = "MONGO_DB_NAME"
 const val KEY_MONGO_ROOT_USER = "MONGO_ROOT_USER"
@@ -10,10 +12,14 @@ const val KEY_MONGO_READ_USERS = "MONGO_READ_USERS"
 const val KEY_MONGO_READ_PASSWORDS = "MONGO_READ_PASSWORDS"
 const val KEY_ADMIN_EMAIL = "ADMIN_EMAIL"
 const val KEY_ADMIN_PASSWORD = "ADMIN_PASSWORD"
-const val KEY_AUTH_TOKENS = "AUTH_TOKENS"
+const val KEY_ROOT_AUTH_TOKENS = "AUTH_TOKENS"
+const val KEY_READ_ONLY_AUTH_TOKENS = "READ_ONLY_AUTH_TOKENS"
 const val KEY_ERROR_RECIPIENTS = "ERROR_RECIPIENTS"
 const val KEY_LOG_PATH = "LOG_PATH"
+const val KEY_LEGACY_DATA_PATH = "LEGACY_DATA_PATH"
 
+
+@ExperimentalCoroutinesApi
 fun main() {
     val dbServerName = System.getenv(KEY_MONGO_SERVER_NAME) ?: "localhost"
     val dbName = System.getenv(KEY_MONGO_DB_NAME) ?: "data"
@@ -38,10 +44,13 @@ fun main() {
 
     val adminEmail = System.getenv(KEY_ADMIN_EMAIL) ?: ""
     val adminPassword = System.getenv(KEY_ADMIN_PASSWORD) ?: ""
-    val authTokens = System.getenv(KEY_AUTH_TOKENS)?.split(";") ?: emptyList()
+    val rootTokens = System.getenv(KEY_ROOT_AUTH_TOKENS)?.split(";") ?: emptyList()
+    val readOnlyTokens = System.getenv(KEY_READ_ONLY_AUTH_TOKENS)?.split(";") ?: emptyList()
+
     val errorRecipients = System.getenv(KEY_ERROR_RECIPIENTS)?.split(";") ?: emptyList()
 
     val logPath = System.getenv(KEY_LOG_PATH) ?: "/home/abclogger/logs"
+    val legacyDataPath = System.getenv(KEY_LEGACY_DATA_PATH) ?: ""
     val app = App()
 
     app.start(
@@ -57,7 +66,9 @@ fun main() {
         adminPassword = adminPassword,
         recipients = errorRecipients,
         logPath = logPath,
-        authTokens = authTokens
+        rootTokens = rootTokens,
+        readOnlyTokens = readOnlyTokens,
+        legacyDataPath = legacyDataPath
     )
     app.await()
 }

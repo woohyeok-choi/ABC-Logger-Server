@@ -11,6 +11,7 @@ import java.time.OffsetDateTime
 @Serializable
 open class Value
 
+
 @Serializable
 data class Datum(
     val timestamp: Long? = null,
@@ -24,34 +25,35 @@ data class Datum(
     @Contextual
     val offsetUploadTime: OffsetDateTime? = null,
 ) {
-    companion object : ProtoSerializer<Datum, DatumProtos.Datum> {
-        override fun toProto(o: Datum): DatumProtos.Datum =
+    companion object : TwoWaySerializer<Datum, DatumProtos.Datum> {
+        override fun toProto(o: Datum, isMd5Hashed: Boolean): DatumProtos.Datum =
             DatumProtos.Datum.newBuilder().apply {
                 timestamp = o.timestamp ?: Long.MIN_VALUE
                 utcOffsetSec = o.utcOffsetSec ?: Int.MIN_VALUE
-                subject = o.subject?.let { Subject.toProto(it) } ?: SubjectProtos.Subject.getDefaultInstance()
+                subject = o.subject?.let { Subject.toProto(it, isMd5Hashed) }
+                    ?: SubjectProtos.Subject.getDefaultInstance()
                 uploadTime = o.uploadTime ?: Long.MIN_VALUE
 
                 when (o.value) {
-                    is PhysicalActivityTransition -> physicalActivityTransition = PhysicalActivityTransition.toProto(o.value)
-                    is PhysicalActivity -> physicalActivity = PhysicalActivity.toProto(o.value)
-                    is AppUsageEvent -> appUsageEvent = AppUsageEvent.toProto(o.value)
-                    is Battery -> battery = Battery.toProto(o.value)
-                    is Bluetooth -> bluetooth = Bluetooth.toProto(o.value)
-                    is CallLog -> callLog = CallLog.toProto(o.value)
-                    is DeviceEvent -> deviceEvent = DeviceEvent.toProto(o.value)
-                    is EmbeddedSensor -> embeddedSensor = EmbeddedSensor.toProto(o.value)
-                    is ExternalSensor -> externalSensor = ExternalSensor.toProto(o.value)
-                    is InstalledApp -> installedApp = InstalledApp.toProto(o.value)
-                    is KeyLog -> keyLog = KeyLog.toProto(o.value)
-                    is Location -> location = Location.toProto(o.value)
-                    is Media -> media = Media.toProto(o.value)
-                    is Message -> message = Message.toProto(o.value)
-                    is Notification -> notification = Notification.toProto(o.value)
-                    is Fitness -> fitness = Fitness.toProto(o.value)
-                    is Survey -> survey = Survey.toProto(o.value)
-                    is DataTraffic -> dataTraffic = DataTraffic.toProto(o.value)
-                    is Wifi -> wifi = Wifi.toProto(o.value)
+                    is PhysicalActivityTransition -> physicalActivityTransition = PhysicalActivityTransition.toProto(o.value, isMd5Hashed)
+                    is PhysicalActivity -> physicalActivity = PhysicalActivity.toProto(o.value, isMd5Hashed)
+                    is AppUsageEvent -> appUsageEvent = AppUsageEvent.toProto(o.value, isMd5Hashed)
+                    is Battery -> battery = Battery.toProto(o.value, isMd5Hashed)
+                    is Bluetooth -> bluetooth = Bluetooth.toProto(o.value, isMd5Hashed)
+                    is CallLog -> callLog = CallLog.toProto(o.value, isMd5Hashed)
+                    is DeviceEvent -> deviceEvent = DeviceEvent.toProto(o.value, isMd5Hashed)
+                    is EmbeddedSensor -> embeddedSensor = EmbeddedSensor.toProto(o.value, isMd5Hashed)
+                    is ExternalSensor -> externalSensor = ExternalSensor.toProto(o.value, isMd5Hashed)
+                    is InstalledApp -> installedApp = InstalledApp.toProto(o.value, isMd5Hashed)
+                    is KeyLog -> keyLog = KeyLog.toProto(o.value, isMd5Hashed)
+                    is Location -> location = Location.toProto(o.value, isMd5Hashed)
+                    is Media -> media = Media.toProto(o.value, isMd5Hashed)
+                    is Message -> message = Message.toProto(o.value, isMd5Hashed)
+                    is Notification -> notification = Notification.toProto(o.value, isMd5Hashed)
+                    is Fitness -> fitness = Fitness.toProto(o.value, isMd5Hashed)
+                    is Survey -> survey = Survey.toProto(o.value, isMd5Hashed)
+                    is DataTraffic -> dataTraffic = DataTraffic.toProto(o.value, isMd5Hashed)
+                    is Wifi -> wifi = Wifi.toProto(o.value, isMd5Hashed)
                 }
             }.build()
 
@@ -98,8 +100,8 @@ data class PhysicalActivityTransition(
     val type: String? = null,
     val isEntered: Boolean? = null
 ) : Value() {
-    companion object : ProtoSerializer<PhysicalActivityTransition, DatumProtos.PhysicalActivityTransition> {
-        override fun toProto(o: PhysicalActivityTransition): DatumProtos.PhysicalActivityTransition =
+    companion object : TwoWaySerializer<PhysicalActivityTransition, DatumProtos.PhysicalActivityTransition> {
+        override fun toProto(o: PhysicalActivityTransition, isMd5Hashed: Boolean): DatumProtos.PhysicalActivityTransition =
             DatumProtos.PhysicalActivityTransition.newBuilder().apply {
                 type = o.type ?: UNKNOWN_STRING
                 isEntered = o.isEntered ?: UNKNOWN_BOOLEAN
@@ -126,8 +128,8 @@ data class PhysicalActivity(
         val confidence: Int? = null
     )
 
-    companion object : ProtoSerializer<PhysicalActivity, DatumProtos.PhysicalActivity> {
-        override fun toProto(o: PhysicalActivity): DatumProtos.PhysicalActivity =
+    companion object : TwoWaySerializer<PhysicalActivity, DatumProtos.PhysicalActivity> {
+        override fun toProto(o: PhysicalActivity, isMd5Hashed: Boolean): DatumProtos.PhysicalActivity =
             DatumProtos.PhysicalActivity.newBuilder().apply {
                 val activityProto = o.activity?.map { activity ->
                     DatumProtos.PhysicalActivity.Activity.newBuilder().apply {
@@ -161,8 +163,8 @@ data class AppUsageEvent(
     val isSystemApp: Boolean? = null,
     val isUpdatedSystemApp: Boolean? = null
 ) : Value() {
-    companion object : ProtoSerializer<AppUsageEvent, DatumProtos.AppUsageEvent> {
-        override fun toProto(o: AppUsageEvent): DatumProtos.AppUsageEvent =
+    companion object : TwoWaySerializer<AppUsageEvent, DatumProtos.AppUsageEvent> {
+        override fun toProto(o: AppUsageEvent, isMd5Hashed: Boolean): DatumProtos.AppUsageEvent =
             DatumProtos.AppUsageEvent.newBuilder().apply {
                 name = o.name ?: UNKNOWN_STRING
                 packageName = o.packageName ?: UNKNOWN_STRING
@@ -201,8 +203,8 @@ data class Battery(
     val energyCounter: Long? = null,
     val technology: String? = null
 ) : Value() {
-    companion object : ProtoSerializer<Battery, DatumProtos.Battery> {
-        override fun toProto(o: Battery): DatumProtos.Battery =
+    companion object : TwoWaySerializer<Battery, DatumProtos.Battery> {
+        override fun toProto(o: Battery, isMd5Hashed: Boolean): DatumProtos.Battery =
             DatumProtos.Battery.newBuilder().apply {
                 level = o.level ?: UNKNOWN_INT
                 scale = o.scale ?: UNKNOWN_INT
@@ -251,8 +253,8 @@ data class Bluetooth(
     val rssi: Int? = null,
     val isLowEnergy: Boolean? = null
 ) : Value() {
-    companion object : ProtoSerializer<Bluetooth, DatumProtos.Bluetooth> {
-        override fun toProto(o: Bluetooth): DatumProtos.Bluetooth =
+    companion object : TwoWaySerializer<Bluetooth, DatumProtos.Bluetooth> {
+        override fun toProto(o: Bluetooth, isMd5Hashed: Boolean): DatumProtos.Bluetooth =
             DatumProtos.Bluetooth.newBuilder().apply {
                 name = o.name ?: UNKNOWN_STRING
                 alias = o.alias ?: UNKNOWN_STRING
@@ -292,8 +294,8 @@ data class CallLog(
     val isStarred: Boolean? = null,
     val isPinned: Boolean? = null
 ) : Value() {
-    companion object : ProtoSerializer<CallLog, DatumProtos.CallLog> {
-        override fun toProto(o: CallLog): DatumProtos.CallLog =
+    companion object : TwoWaySerializer<CallLog, DatumProtos.CallLog> {
+        override fun toProto(o: CallLog, isMd5Hashed: Boolean): DatumProtos.CallLog =
             DatumProtos.CallLog.newBuilder().apply {
                 duration = o.duration ?: UNKNOWN_LONG
                 number = o.number ?: UNKNOWN_STRING
@@ -326,8 +328,8 @@ data class DeviceEvent(
     val type: String? = null,
     val extra: Map<String, String>? = null
 ) : Value() {
-    companion object : ProtoSerializer<DeviceEvent, DatumProtos.DeviceEvent> {
-        override fun toProto(o: DeviceEvent): DatumProtos.DeviceEvent =
+    companion object : TwoWaySerializer<DeviceEvent, DatumProtos.DeviceEvent> {
+        override fun toProto(o: DeviceEvent, isMd5Hashed: Boolean): DatumProtos.DeviceEvent =
             DatumProtos.DeviceEvent.newBuilder().apply {
                 type = o.type ?: UNKNOWN_STRING
                 putAllExtra(o.extra ?: mapOf())
@@ -351,8 +353,8 @@ data class EmbeddedSensor(
     val valueUnit: String? = null,
     val value: List<String> = emptyList()
 ) : Value() {
-    companion object : ProtoSerializer<EmbeddedSensor, DatumProtos.EmbeddedSensor> {
-        override fun toProto(o: EmbeddedSensor): DatumProtos.EmbeddedSensor =
+    companion object : TwoWaySerializer<EmbeddedSensor, DatumProtos.EmbeddedSensor> {
+        override fun toProto(o: EmbeddedSensor, isMd5Hashed: Boolean): DatumProtos.EmbeddedSensor =
             DatumProtos.EmbeddedSensor.newBuilder().apply {
                 valueType = o.valueType ?: UNKNOWN_STRING
                 putAllStatus(o.status ?: mapOf())
@@ -379,18 +381,18 @@ data class ExternalSensor(
     val deviceType: String? = null,
     val valueType: String? = null,
     val identifier: String? = null,
-    val status: Map<String, String>? = null,
+    val others: Map<String, String>? = null,
     val valueFormat: String? = null,
     val valueUnit: String? = null,
     val value: List<String> = emptyList()
 ) : Value() {
-    companion object : ProtoSerializer<ExternalSensor, DatumProtos.ExternalSensor> {
-        override fun toProto(o: ExternalSensor): DatumProtos.ExternalSensor =
+    companion object : TwoWaySerializer<ExternalSensor, DatumProtos.ExternalSensor> {
+        override fun toProto(o: ExternalSensor, isMd5Hashed: Boolean): DatumProtos.ExternalSensor =
             DatumProtos.ExternalSensor.newBuilder().apply {
                 deviceType = o.deviceType ?: UNKNOWN_STRING
                 valueType = o.valueType ?: UNKNOWN_STRING
                 identifier = o.identifier ?: UNKNOWN_STRING
-                putAllStatus(o.status ?: mapOf())
+                putAllOthers(o.others ?: mapOf())
                 valueFormat = o.valueFormat ?: UNKNOWN_STRING
                 valueUnit = o.valueUnit ?: UNKNOWN_STRING
                 addAllValue(o.value)
@@ -402,7 +404,7 @@ data class ExternalSensor(
                     deviceType = deviceType,
                     valueType = valueType,
                     identifier = identifier,
-                    status = statusMap,
+                    others = othersMap,
                     valueFormat = valueFormat,
                     valueUnit = valueUnit,
                     value = valueList
@@ -426,8 +428,8 @@ data class InstalledApp(
         val lastUpdateTime: Long? = null
     )
 
-    companion object : ProtoSerializer<InstalledApp, DatumProtos.InstalledApp> {
-        override fun toProto(o: InstalledApp): DatumProtos.InstalledApp =
+    companion object : TwoWaySerializer<InstalledApp, DatumProtos.InstalledApp> {
+        override fun toProto(o: InstalledApp, isMd5Hashed: Boolean): DatumProtos.InstalledApp =
             DatumProtos.InstalledApp.newBuilder().apply {
                 val app = o.app?.map {
                     DatumProtos.InstalledApp.App.newBuilder().apply {
@@ -474,8 +476,8 @@ data class KeyLog(
     val prevKeyType: String? = null,
     val currentKeyType: String? = null
 ) : Value() {
-    companion object : ProtoSerializer<KeyLog, DatumProtos.KeyLog> {
-        override fun toProto(o: KeyLog): DatumProtos.KeyLog =
+    companion object : TwoWaySerializer<KeyLog, DatumProtos.KeyLog> {
+        override fun toProto(o: KeyLog, isMd5Hashed: Boolean): DatumProtos.KeyLog =
             DatumProtos.KeyLog.newBuilder().apply {
                 name = o.name ?: UNKNOWN_STRING
                 packageName = o.packageName ?: UNKNOWN_STRING
@@ -518,8 +520,8 @@ data class Location(
     val accuracy: Float? = null,
     val speed: Float? = null
 ) : Value() {
-    companion object : ProtoSerializer<Location, DatumProtos.Location> {
-        override fun toProto(o: Location): DatumProtos.Location =
+    companion object : TwoWaySerializer<Location, DatumProtos.Location> {
+        override fun toProto(o: Location, isMd5Hashed: Boolean): DatumProtos.Location =
             DatumProtos.Location.newBuilder().apply {
                 latitude = o.latitude ?: UNKNOWN_DOUBLE
                 longitude = o.longitude ?: UNKNOWN_DOUBLE
@@ -545,8 +547,8 @@ data class Location(
 data class Media(
     val mimeType: String? = null
 ) : Value() {
-    companion object : ProtoSerializer<Media, DatumProtos.Media> {
-        override fun toProto(o: Media): DatumProtos.Media =
+    companion object : TwoWaySerializer<Media, DatumProtos.Media> {
+        override fun toProto(o: Media, isMd5Hashed: Boolean): DatumProtos.Media =
             DatumProtos.Media.newBuilder().apply {
                 mimeType = o.mimeType ?: UNKNOWN_STRING
             }.build()
@@ -569,8 +571,8 @@ data class Message(
     val isStarred: Boolean? = null,
     val isPinned: Boolean? = null
 ) : Value() {
-    companion object : ProtoSerializer<Message, DatumProtos.Message> {
-        override fun toProto(o: Message): DatumProtos.Message =
+    companion object : TwoWaySerializer<Message, DatumProtos.Message> {
+        override fun toProto(o: Message, isMd5Hashed: Boolean): DatumProtos.Message =
             DatumProtos.Message.newBuilder().apply {
                 number = o.number ?: UNKNOWN_STRING
                 messageClass = o.messageClass ?: UNKNOWN_STRING
@@ -600,6 +602,12 @@ data class Notification(
     val packageName: String? = null,
     val isSystemApp: Boolean? = null,
     val isUpdatedSystemApp: Boolean? = null,
+    val key: String? = null,
+    val groupKey: String? = null,
+    val notificationId: Int? = null,
+    val tag: String? = null,
+    val isClearable: Boolean? = null,
+    val isOngoing: Boolean? = null,
     val title: String? = null,
     val bigTitle: String? = null,
     val text: String? = null,
@@ -615,13 +623,19 @@ data class Notification(
     val lightColor: String? = null,
     val isPosted: Boolean? = null
 ) : Value() {
-    companion object : ProtoSerializer<Notification, DatumProtos.Notification> {
-        override fun toProto(o: Notification): DatumProtos.Notification =
+    companion object : TwoWaySerializer<Notification, DatumProtos.Notification> {
+        override fun toProto(o: Notification, isMd5Hashed: Boolean): DatumProtos.Notification =
             DatumProtos.Notification.newBuilder().apply {
                 name = o.name ?: UNKNOWN_STRING
                 packageName = o.packageName ?: UNKNOWN_STRING
                 isSystemApp = o.isSystemApp ?: UNKNOWN_BOOLEAN
                 isUpdatedSystemApp = o.isUpdatedSystemApp ?: UNKNOWN_BOOLEAN
+                key = o.key ?: UNKNOWN_STRING
+                groupKey = o.groupKey ?: UNKNOWN_STRING
+                notificationId = o.notificationId ?: UNKNOWN_INT
+                tag = o.tag ?: UNKNOWN_STRING
+                isClearable = o.isClearable ?: UNKNOWN_BOOLEAN
+                isOngoing = o.isOngoing ?: UNKNOWN_BOOLEAN
                 title = o.title ?: UNKNOWN_STRING
                 bigTitle = o.bigTitle ?: UNKNOWN_STRING
                 text = o.text ?: UNKNOWN_STRING
@@ -646,6 +660,12 @@ data class Notification(
                     packageName = packageName,
                     isSystemApp = isSystemApp,
                     isUpdatedSystemApp = isUpdatedSystemApp,
+                    key = key,
+                    groupKey = groupKey,
+                    notificationId = notificationId,
+                    tag = tag,
+                    isClearable = isClearable,
+                    isOngoing = isOngoing,
                     title = title,
                     bigTitle = bigTitle,
                     text = text,
@@ -677,8 +697,8 @@ data class Fitness(
     val dataSourceName: String? = null,
     val dataSourcePackageName: String? = null
 ) : Value() {
-    companion object : ProtoSerializer<Fitness, DatumProtos.Fitness> {
-        override fun toProto(o: Fitness): DatumProtos.Fitness =
+    companion object : TwoWaySerializer<Fitness, DatumProtos.Fitness> {
+        override fun toProto(o: Fitness, isMd5Hashed: Boolean): DatumProtos.Fitness =
             DatumProtos.Fitness.newBuilder().apply {
                 type = o.type ?: UNKNOWN_STRING
                 startTime = o.startTime ?: UNKNOWN_LONG
@@ -737,8 +757,8 @@ data class Survey(
         val answer: List<String>? = null
     )
 
-    companion object : ProtoSerializer<Survey, DatumProtos.Survey> {
-        override fun toProto(o: Survey): DatumProtos.Survey =
+    companion object : TwoWaySerializer<Survey, DatumProtos.Survey> {
+        override fun toProto(o: Survey, isMd5Hashed: Boolean): DatumProtos.Survey =
             DatumProtos.Survey.newBuilder().apply {
                 eventTime = o.eventTime ?: UNKNOWN_LONG
                 eventName = o.eventName ?: UNKNOWN_STRING
@@ -810,8 +830,8 @@ data class DataTraffic(
     val mobileRxBytes: Long? = null,
     val mobileTxBytes: Long? = null
 ) : Value() {
-    companion object : ProtoSerializer<DataTraffic, DatumProtos.DataTraffic> {
-        override fun toProto(o: DataTraffic): DatumProtos.DataTraffic =
+    companion object : TwoWaySerializer<DataTraffic, DatumProtos.DataTraffic> {
+        override fun toProto(o: DataTraffic, isMd5Hashed: Boolean): DatumProtos.DataTraffic =
             DatumProtos.DataTraffic.newBuilder().apply {
                 fromTime = o.fromTime ?: UNKNOWN_LONG
                 toTime = o.toTime ?: UNKNOWN_LONG
@@ -848,8 +868,8 @@ data class Wifi(
         val rssi: Int? = null
     )
 
-    companion object : ProtoSerializer<Wifi, DatumProtos.Wifi> {
-        override fun toProto(o: Wifi): DatumProtos.Wifi =
+    companion object : TwoWaySerializer<Wifi, DatumProtos.Wifi> {
+        override fun toProto(o: Wifi, isMd5Hashed: Boolean): DatumProtos.Wifi =
             DatumProtos.Wifi.newBuilder().apply {
                 val accessPoint = o.accessPoint?.map {
                     DatumProtos.Wifi.AccessPoint.newBuilder().apply {

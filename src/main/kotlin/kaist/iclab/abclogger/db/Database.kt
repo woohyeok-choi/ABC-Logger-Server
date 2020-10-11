@@ -16,7 +16,6 @@ import org.litote.kmongo.coroutine.CoroutineClient
 import org.litote.kmongo.coroutine.CoroutineDatabase
 import org.litote.kmongo.coroutine.coroutine
 import org.litote.kmongo.reactivestreams.KMongo
-import org.litote.kmongo.util.idValue
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicBoolean
 

@@ -29,3 +29,5 @@ docker/docker-compose.yaml
 
 
 test/
+
+docker/config.env

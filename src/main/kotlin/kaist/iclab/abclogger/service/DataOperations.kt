@@ -6,6 +6,7 @@ import kaist.iclab.abclogger.grpc.proto.CommonProtos
 import kaist.iclab.abclogger.grpc.proto.DatumProtos
 import kaist.iclab.abclogger.grpc.service.DataOperationsGrpcKt
 import kaist.iclab.abclogger.grpc.service.ServiceProtos
+import kaist.iclab.abclogger.interceptor.AuthInterceptor
 import kaist.iclab.abclogger.schema.Datum
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -34,21 +35,27 @@ class DataOperations(
         return CommonProtos.Empty.getDefaultInstance()
     }
 
-    override suspend fun readData(request: ServiceProtos.Query.Read): ServiceProtos.Bulk.Data =
-        readDataInternal(request, false).toList().map { datum ->
-            Datum.toProto(datum)
+    override suspend fun readData(request: ServiceProtos.Query.Read): ServiceProtos.Bulk.Data {
+        val isMd5Hashed = AuthInterceptor.IS_MD5_HASHED.get() == true
+
+        return readDataInternal(request, false, isMd5Hashed).toList().map { datum ->
+            Datum.toProto(datum, isMd5Hashed)
         }.let { data ->
             ServiceProtos.Bulk.Data.newBuilder().apply {
                 addAllDatum(data)
             }.build()
         }
+    }
 
-    override fun readDataAsStream(request: ServiceProtos.Query.Read): Flow<DatumProtos.Datum> =
-        readDataInternal(request, true).toFlow().map { datum ->
-            Datum.toProto(datum)
+    override fun readDataAsStream(request: ServiceProtos.Query.Read): Flow<DatumProtos.Datum> {
+        val isMd5Hashed = AuthInterceptor.IS_MD5_HASHED.get() == true
+
+        return readDataInternal(request, true, isMd5Hashed).toFlow().map { datum ->
+            Datum.toProto(datum, isMd5Hashed)
         }
+    }
 
-    private fun readDataInternal(request: ServiceProtos.Query.Read, isStream: Boolean) = reader.readData(
+    private fun readDataInternal(request: ServiceProtos.Query.Read, isStream: Boolean, isMd5Hashed: Boolean) = reader.readData(
         fromTimestamp = request.fromTimestamp,
         toTimestamp = request.toTimestamp,
         dataTypes = request.datumTypeList.map { it.name },
@@ -67,6 +74,7 @@ class DataOperations(
         } else {
             request.limit.takeIf { it > 0 }?.coerceAtMost(bulkSize) ?: bulkSize
         },
-        isAscending = request.isAscending
+        isAscending = request.isAscending,
+        isMd5Hashed = isMd5Hashed
     )
 }

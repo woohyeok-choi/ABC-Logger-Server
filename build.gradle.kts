@@ -14,7 +14,7 @@ plugins {
 application {
     mainClassName = "kaist.iclab.abclogger.MainKt"
     group = "kaist.iclab.abclogger"
-    version = "1.0.0"
+    version = "1.1.0"
 }
 
 
@@ -73,6 +73,12 @@ dependencies {
      */
     implementation("log4j:log4j:1.2.17")
     implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.13.3")
+
+    /**
+     * Legacy Data Insert
+     */
+    implementation("com.squareup.moshi:moshi:1.11.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.11.0")
 
     /**
      * Test
