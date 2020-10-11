@@ -11,7 +11,6 @@ import kaist.iclab.abclogger.schema.*
 import kaist.iclab.abclogger.service.DataOperations
 import kaist.iclab.abclogger.interceptor.AuthInterceptor
 import kaist.iclab.abclogger.interceptor.ErrorInterceptor
-import kaist.iclab.abclogger.legacy.LegacyDataInserter
 import kaist.iclab.abclogger.service.AggregateOperations
 import kaist.iclab.abclogger.service.HeartBeatsOperations
 import kaist.iclab.abclogger.service.SubjectsOperations
@@ -19,13 +18,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import org.litote.kmongo.serialization.registerModule
-import java.io.File
 import java.util.concurrent.Executors
 
 class App {
     private var server: Server? = null
 
-    @ExperimentalCoroutinesApi
     fun start(
         portNumber: Int,
         dbServerName: String,
@@ -40,8 +37,7 @@ class App {
         rootTokens: List<String>,
         readOnlyTokens: List<String>,
         recipients: List<String>,
-        logPath: String,
-        legacyDataPath: String
+        logPath: String
     ) {
         if (logPath.isNotBlank()) Log.enableFileAppender(logPath)
         if (adminEmail.isNotBlank() && adminPassword.isNotBlank() && recipients.isNotEmpty()) {
@@ -125,22 +121,6 @@ class App {
                 }
             )
             Log.info("A server is started..")
-
-            runBlocking {
-                File(legacyDataPath).listFiles()?.filter {
-                    it.extension == "pb"
-                }?.forEach {
-                    Log.info("Legacy data are inserted: ${it.name}")
-
-                    LegacyDataInserter.insertData(
-                        file = it,
-                        writer = writer
-                    )
-
-                    Log.info("Legacy data insertion completed")
-                }
-
-            }
 
         } catch (e: Exception) {
             Log.error("A server cannot be started.", e)

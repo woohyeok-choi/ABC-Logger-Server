@@ -14,7 +14,7 @@ plugins {
 application {
     mainClassName = "kaist.iclab.abclogger.MainKt"
     group = "kaist.iclab.abclogger"
-    version = "1.1.0"
+    version = "1.0.0"
 }
 
 

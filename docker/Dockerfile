@@ -24,7 +24,7 @@ RUN chown -R $APP_USER /home/abclogger
 
 USER $APP_USER
 
-COPY ./jars/abc-logger-server-1.1.0-all.jar /home/abclogger/abc-logger-server.jar
+COPY abc-logger-server.jar /home/abclogger/abc-logger-server.jar
 
 WORKDIR /home/abclogger
 

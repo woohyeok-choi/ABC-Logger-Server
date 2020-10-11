@@ -12,7 +12,7 @@ const val KEY_MONGO_READ_USERS = "MONGO_READ_USERS"
 const val KEY_MONGO_READ_PASSWORDS = "MONGO_READ_PASSWORDS"
 const val KEY_ADMIN_EMAIL = "ADMIN_EMAIL"
 const val KEY_ADMIN_PASSWORD = "ADMIN_PASSWORD"
-const val KEY_ROOT_AUTH_TOKENS = "AUTH_TOKENS"
+const val KEY_ROOT_AUTH_TOKENS = "ROOT_AUTH_TOKENS"
 const val KEY_READ_ONLY_AUTH_TOKENS = "READ_ONLY_AUTH_TOKENS"
 const val KEY_ERROR_RECIPIENTS = "ERROR_RECIPIENTS"
 const val KEY_LOG_PATH = "LOG_PATH"
@@ -50,7 +50,6 @@ fun main() {
     val errorRecipients = System.getenv(KEY_ERROR_RECIPIENTS)?.split(";") ?: emptyList()
 
     val logPath = System.getenv(KEY_LOG_PATH) ?: "/home/abclogger/logs"
-    val legacyDataPath = System.getenv(KEY_LEGACY_DATA_PATH) ?: ""
     val app = App()
 
     app.start(
@@ -67,8 +66,7 @@ fun main() {
         recipients = errorRecipients,
         logPath = logPath,
         rootTokens = rootTokens,
-        readOnlyTokens = readOnlyTokens,
-        legacyDataPath = legacyDataPath
+        readOnlyTokens = readOnlyTokens
     )
     app.await()
 }

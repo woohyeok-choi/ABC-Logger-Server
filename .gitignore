@@ -31,3 +31,7 @@ docker/docker-compose.yaml
 test/
 
 docker/config.env
+
+src/main/kotlin/kaist/iclab/abclogger/test.kt
+
+jars/
