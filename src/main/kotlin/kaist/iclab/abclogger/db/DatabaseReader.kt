@@ -128,7 +128,7 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
         isAscending: Boolean,
         isMd5Hashed: Boolean
     ): CoroutineAggregatePublisher<Subject> = try {
-        val filter = heartBeatFilter(
+        val filter = dataFilter(
             fromTimestamp,
             toTimestamp,
             dataTypes,
@@ -146,27 +146,27 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
         )
 
         val sort = if (isAscending) {
-            ascending(HeartBeat::timestamp)
+            ascending(Datum::timestamp)
         } else {
-            descending(HeartBeat::timestamp)
+            descending(Datum::timestamp)
         }
 
-        database.collection<HeartBeat>().aggregate<Subject>(
+        database.collection<Datum>().aggregate<Subject>(
             match(filter),
             group(
-                id = HeartBeat::subject,
+                id = Datum::subject,
                 fieldAccumulators = arrayOf(
-                    Subject::groupName first HeartBeat::subject / Subject::groupName,
-                    Subject::email first HeartBeat::subject / Subject::email,
-                    Subject::hashedEmail first HeartBeat::subject / Subject::hashedEmail,
-                    Subject::instanceId first HeartBeat::subject / Subject::instanceId,
-                    Subject::source first HeartBeat::subject / Subject::source,
-                    Subject::deviceManufacturer first HeartBeat::subject / Subject::deviceManufacturer,
-                    Subject::deviceModel first HeartBeat::subject / Subject::deviceModel,
-                    Subject::deviceVersion first HeartBeat::subject / Subject::deviceVersion,
-                    Subject::deviceOs first HeartBeat::subject / Subject::deviceOs,
-                    Subject::appId first HeartBeat::subject / Subject::appId,
-                    Subject::appVersion first HeartBeat::subject / Subject::appVersion
+                    Subject::groupName first Datum::subject / Subject::groupName,
+                    Subject::email first Datum::subject / Subject::email,
+                    Subject::hashedEmail first Datum::subject / Subject::hashedEmail,
+                    Subject::instanceId first Datum::subject / Subject::instanceId,
+                    Subject::source first Datum::subject / Subject::source,
+                    Subject::deviceManufacturer first Datum::subject / Subject::deviceManufacturer,
+                    Subject::deviceModel first Datum::subject / Subject::deviceModel,
+                    Subject::deviceVersion first Datum::subject / Subject::deviceVersion,
+                    Subject::deviceOs first Datum::subject / Subject::deviceOs,
+                    Subject::appId first Datum::subject / Subject::appId,
+                    Subject::appVersion first Datum::subject / Subject::appVersion
                 )
             ),
             limit(limit),

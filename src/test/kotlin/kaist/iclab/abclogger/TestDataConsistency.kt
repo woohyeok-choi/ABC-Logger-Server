@@ -55,12 +55,12 @@ class TestDataConsistency : StringSpec() {
         checkDataConsistencyForCreateDataAsStreamAndReadDataAsStream(DATA_TYPES, TIME_RANGE)
         checkDataConsistencyForQueryingSharedFields(DATA_TYPES, TIME_RANGE)
         checkDataConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)
-
+/*
         DATA_TYPES.forEach { checkHeartBeatConsistencyForEachDataType(it, TIME_RANGE) }
 
         checkHeartBeatConsistencyForMultipleDataTypes(DATA_TYPES, TIME_RANGE)
         checkHeartBeatConsistencyForQueryingSharedFields(DATA_TYPES, TIME_RANGE)
-        checkHeartBeatConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)
+        checkHeartBeatConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)*/
     }
 
     private fun checkConsistencyForDataType(dataType: DatumProtos.DatumType) {
@@ -96,6 +96,11 @@ class TestDataConsistency : StringSpec() {
                     dataStub.readData(
                         queryRead(setOf(dataType), setOf(subject), START_TIME, END_TIME)
                     ).datumList
+                },
+                subject = {
+                    subjectStub.readSubjects(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).subjectList
                 },
                 aggregate = {
                     aggregateStub.countData(
@@ -140,6 +145,11 @@ class TestDataConsistency : StringSpec() {
                 },
                 read = {
                     dataStub.readDataAsStream(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).toList()
+                },
+                subject = {
+                    subjectStub.readSubjectsAsStream(
                         queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
                     ).toList()
                 },
@@ -189,6 +199,11 @@ class TestDataConsistency : StringSpec() {
                         queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
                     ).toList()
                 },
+                subject = {
+                    subjectStub.readSubjects(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).subjectList
+                },
                 aggregate = {
                     aggregateStub.countData(
                         queryAggregate(setOf(), setOf(subject), START_TIME, END_TIME)
@@ -235,6 +250,11 @@ class TestDataConsistency : StringSpec() {
                         queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
                     ).toList()
                 },
+                subject = {
+                    subjectStub.readSubjects(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).subjectList
+                },
                 aggregate = {
                     aggregateStub.countData(
                         queryAggregate(setOf(), setOf(subject), START_TIME, END_TIME)
@@ -280,6 +300,11 @@ class TestDataConsistency : StringSpec() {
                     dataStub.readDataAsStream(
                         queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
                     ).toList()
+                },
+                subject = {
+                    subjectStub.readSubjects(
+                        queryRead(setOf(), setOf(subject), START_TIME, END_TIME)
+                    ).subjectList
                 },
                 aggregate = {
                     aggregateStub.countData(
@@ -354,6 +379,11 @@ class TestDataConsistency : StringSpec() {
                     dataStub.readDataAsStream(
                         queryRead(setOf(), setOf(subjectQuery), START_TIME, END_TIME)
                     ).toList()
+                },
+                subject = {
+                    subjectStub.readSubjects(
+                        queryRead(setOf(), setOf(subjectQuery), START_TIME, END_TIME)
+                    ).subjectList
                 },
                 aggregate = {
                     aggregateStub.countData(
@@ -436,6 +466,11 @@ class TestDataConsistency : StringSpec() {
                         queryRead(setOf(), subjectQuery, START_TIME, END_TIME)
                     ).toList()
                 },
+                subject = {
+                    subjectStub.readSubjects(
+                        queryRead(setOf(), subjectQuery, START_TIME, END_TIME)
+                    ).subjectList
+                },
                 aggregate = {
                     aggregateStub.countData(
                         queryAggregate(setOf(), subjectQuery, START_TIME, END_TIME)
@@ -475,22 +510,10 @@ class TestDataConsistency : StringSpec() {
                     heartBeats.forEach { heartBeatStub.createHeartBeat(it) }
                     heartBeats
                 },
-
                 readHeartBeats = {
                     heartBeatStub.readHeartBeats(
                         queryRead(setOf(dataType), setOf(subject), START_TIME, END_TIME)
                     ).heartBeatList
-                },
-                readSubjects = {
-                    subjectStub.readSubjects(
-                        queryRead(setOf(dataType), setOf(subject), START_TIME, END_TIME)
-                    ).subjectList
-                },
-
-                aggregateSubjects = {
-                    aggregateStub.countSubjects(
-                        queryAggregate(setOf(dataType), setOf(subject), START_TIME, END_TIME)
-                    )
                 }
             )
 
@@ -531,16 +554,6 @@ class TestDataConsistency : StringSpec() {
                     heartBeatStub.readHeartBeatsAsStream(
                         queryRead(dataTypes.toSet(), setOf(subject), START_TIME, END_TIME)
                     ).toList()
-                },
-                readSubjects = {
-                    subjectStub.readSubjectsAsStream(
-                        queryRead(dataTypes.toSet(), setOf(subject), START_TIME, END_TIME)
-                    ).toList()
-                },
-                aggregateSubjects = {
-                    aggregateStub.countSubjects(
-                        queryAggregate(dataTypes.toSet(), setOf(subject), START_TIME, END_TIME)
-                    )
                 }
             )
         }
@@ -607,17 +620,6 @@ class TestDataConsistency : StringSpec() {
                     heartBeatStub.readHeartBeats(
                         queryRead(dataTypes.toSet(), setOf(subjectQuery), START_TIME, END_TIME)
                     ).heartBeatList
-                },
-                readSubjects = {
-                    subjectStub.readSubjects(
-                        queryRead(dataTypes.toSet(), setOf(subjectQuery), START_TIME, END_TIME)
-                    ).subjectList
-                },
-
-                aggregateSubjects = {
-                    aggregateStub.countSubjects(
-                        queryAggregate(dataTypes.toSet(), setOf(subjectQuery), START_TIME, END_TIME)
-                    )
                 }
             )
         }
@@ -690,20 +692,10 @@ class TestDataConsistency : StringSpec() {
                     heartBeatStub.readHeartBeatsAsStream(
                         queryRead(dataTypes.toSet(), subjectQuery, START_TIME, END_TIME)
                     ).toList()
-                },
-                readSubjects = {
-                    subjectStub.readSubjectsAsStream(
-                        queryRead(dataTypes.toSet(), subjectQuery, START_TIME, END_TIME)
-                    ).toList()
-                },
-
-                aggregateSubjects = {
-                    aggregateStub.countSubjects(
-                        queryAggregate(dataTypes.toSet(), subjectQuery, START_TIME, END_TIME)
-                    )
                 }
             )
         }
     }
+
 
 }

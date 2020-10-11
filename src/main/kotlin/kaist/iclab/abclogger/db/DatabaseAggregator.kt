@@ -51,7 +51,9 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
                 fieldAccumulators = arrayOf(
                     Group::subject first Datum::subject,
                     Group::datumType first Datum::datumType,
-                    Group::value sum 1.0
+                    Group::value sum 1.0,
+                    Group::firstTimestamp first Datum::timestamp,
+                    Group::lastTimestamp last Datum::timestamp
                 )
             )
         ).allowDiskUse(true).batchSize(batchSize)
@@ -76,7 +78,7 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
         appVersions: List<String> = listOf(),
         isMd5Hashed: Boolean
     ): CoroutineAggregatePublisher<Group> = try {
-        val filter = heartBeatFilter(
+        val filter = dataFilter(
             fromTimestamp,
             toTimestamp,
             dataTypes,
@@ -93,28 +95,27 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
             isMd5Hashed
         )
 
-        database.collection<HeartBeat>().aggregate<Group>(
+        database.collection<Datum>().aggregate<Group>(
             match(filter),
-            project(
-                Group::subject from HeartBeat::subject,
-                Group::datumType from HeartBeat::dataStatus / DataStatus::datumType
-            ),
-            Group::datumType unwind UnwindOptions().preserveNullAndEmptyArrays(true),
             group(
                 id = document(
-                    Group::subject from Group::subject,
-                    Group::datumType from Group::datumType
+                    Group::subject from Datum::subject,
+                    Group::datumType from Datum::datumType
                 ),
                 fieldAccumulators = arrayOf(
                     Group::subject first Group::subject,
                     Group::datumType first Group::datumType,
+                    Group::firstTimestamp first Datum::timestamp,
+                    Group::lastTimestamp last Datum::timestamp
                 )
             ),
             group(
                 id = Group::datumType,
                 fieldAccumulators = arrayOf(
                     Group::datumType first Group::datumType,
-                    Group::value sum 1.0
+                    Group::value sum 1.0,
+                    Group::firstTimestamp first Group::firstTimestamp,
+                    Group::lastTimestamp last Group::lastTimestamp
                 )
             )
         ).allowDiskUse(true).batchSize(batchSize)

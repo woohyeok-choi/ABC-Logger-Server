@@ -220,6 +220,7 @@ suspend fun TestContext.testCreateAndReadDatum(
     delay: Long = TimeUnit.MINUTES.toMillis(1),
     create: suspend () -> Collection<DatumProtos.Datum>,
     read: suspend () -> Collection<DatumProtos.Datum>,
+    subject: suspend () -> Collection<SubjectProtos.Subject>,
     aggregate: suspend () -> AggregationProtos.Aggregation
 ) {
     val originalData = create.invoke()
@@ -227,8 +228,10 @@ suspend fun TestContext.testCreateAndReadDatum(
 
     val realData = read.invoke()
     val aggregation = aggregate.invoke()
+    val subjects = subject.invoke()
 
     realData shouldContainAllExactly originalData
+    subjects shouldContainAllExactly originalData.map { it.subject }.toSet()
     originalData shouldHaveSize aggregation.groupList.sumOf { it.value }.toInt()
 
     val groupByCount = realData.fold(mutableMapOf<Pair<DatumProtos.DatumType, SubjectProtos.Subject>, Double>()) { acc, datum ->
@@ -249,36 +252,14 @@ suspend fun TestContext.testCreateAndReadHeartBeat(
     delay: Long = TimeUnit.MINUTES.toMillis(1),
     createHeartBeats: suspend () -> Collection<HeartBeatProtos.HeartBeat>,
     readHeartBeats: suspend () -> Collection<HeartBeatProtos.HeartBeat>,
-    readSubjects: suspend () -> Collection<SubjectProtos.Subject>,
-    aggregateSubjects: suspend () -> AggregationProtos.Aggregation,
 ) {
     val originalHeartBeats = createHeartBeats.invoke()
-    val originalSubjects = originalHeartBeats.fold(
-        mutableMapOf<DatumProtos.DatumType, Set<SubjectProtos.Subject>>()
-    ) { acc, heartBeat ->
-        heartBeat.dataStatusList.forEach { collector ->
-            val key = collector.datumType
-            val value = acc[key] ?: mutableSetOf()
-            acc[key] = value + heartBeat.subject
-        }
-        acc
-    }
 
     delay(delay)
 
     val realHeartBeats = readHeartBeats.invoke()
-    val realSubjects = readSubjects.invoke()
-
-    val subjectAggregation = aggregateSubjects.invoke()
 
     originalHeartBeats shouldContainAllExactly realHeartBeats
-
-    originalSubjects.values.flatten().toSet() shouldContainAllExactly realSubjects
-    originalSubjects.entries.forEach { (k, v) ->
-        subjectAggregation.groupList.firstOrNull {
-            it.datumType == k
-        }?.value shouldBe v.size.toDouble()
-    }
 }
 
 
