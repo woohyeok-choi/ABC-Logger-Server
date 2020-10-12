@@ -11,6 +11,6 @@
   * [service](src/main/kotlin/kaist/iclab/abclogger/service): gRPC service implementations
 
 ## Related Projects
-* [ABC Logger Server](https://github.com/woohyeok-choi/ABC-Logger-Server)
+* [ABC Logger Android Client](https://github.com/woohyeok-choi/ABC-Logger)
 * [ABC Logger gRPC specification](https://github.com/woohyeok-choi/ABC-Logger-gRPC-Specs)
 * [ABC Logger gRPC communication for Python](https://github.com/woohyeok-choi/ABC-Logger-CRUD-Boilerplate)
