@@ -24,8 +24,7 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
         limit: Int,
-        isAscending: Boolean,
-        isMd5Hashed: Boolean
+        isAscending: Boolean
     ): CoroutineFindPublisher<Datum> = try {
         val filter = dataFilter(
             fromTimestamp,
@@ -41,13 +40,12 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
             deviceOses,
             appIds,
             appVersions,
-            isMd5Hashed
         )
 
         val sort = if (isAscending) {
-            ascending(Datum::timestamp)
+            ascending(Datum::datumType, Datum::subject, Datum::timestamp)
         } else {
-            descending(Datum::timestamp)
+            descending(Datum::datumType, Datum::subject, Datum::timestamp)
         }
 
         database.collection<Datum>()
@@ -76,7 +74,6 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
         appVersions: List<String> = listOf(),
         limit: Int,
         isAscending: Boolean,
-        isMd5Hashed: Boolean
     ): CoroutineFindPublisher<HeartBeat> = try {
         val filter = heartBeatFilter(
             fromTimestamp,
@@ -91,14 +88,13 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
             deviceVersion,
             deviceOses,
             appIds,
-            appVersions,
-            isMd5Hashed
+            appVersions
         )
 
         val sort = if (isAscending) {
-            ascending(HeartBeat::timestamp)
+            ascending(HeartBeat::dataStatus / DataStatus::datumType, HeartBeat::subject, HeartBeat::timestamp)
         } else {
-            descending(HeartBeat::timestamp)
+            descending(HeartBeat::dataStatus / DataStatus::datumType, HeartBeat::subject, HeartBeat::timestamp)
         }
         database.collection<HeartBeat>()
             .find(filter)
@@ -125,8 +121,7 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
         limit: Int,
-        isAscending: Boolean,
-        isMd5Hashed: Boolean
+        isAscending: Boolean
     ): CoroutineAggregatePublisher<Subject> = try {
         val filter = dataFilter(
             fromTimestamp,
@@ -142,13 +137,12 @@ class DatabaseReader(private val database: Database, private val batchSize: Int)
             deviceOses,
             appIds,
             appVersions,
-            isMd5Hashed
         )
 
         val sort = if (isAscending) {
-            ascending(Datum::timestamp)
+            ascending(Datum::datumType, Datum::subject, Datum::timestamp)
         } else {
-            descending(Datum::timestamp)
+            descending(Datum::datumType, Datum::subject, Datum::timestamp)
         }
 
         database.collection<Datum>().aggregate<Subject>(

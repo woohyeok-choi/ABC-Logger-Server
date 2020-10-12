@@ -33,9 +33,10 @@ object Config {
     }
 
     val datumIndices = listOf(
-        ascending(Datum::timestamp, Datum::datumType),
+        ascending(Datum::datumType, Datum::subject, Datum::timestamp),
         ascending(Datum::timestamp, Datum::subject / Subject::groupName),
         ascending(Datum::timestamp, Datum::subject / Subject::email),
+        ascending(Datum::timestamp, Datum::subject / Subject::hashedEmail),
         ascending(Datum::timestamp, Datum::subject / Subject::instanceId),
         ascending(Datum::timestamp, Datum::subject / Subject::source),
         ascending(Datum::timestamp, Datum::subject / Subject::deviceManufacturer),
@@ -43,24 +44,14 @@ object Config {
         ascending(Datum::timestamp, Datum::subject / Subject::deviceVersion),
         ascending(Datum::timestamp, Datum::subject / Subject::deviceOs),
         ascending(Datum::timestamp, Datum::subject / Subject::appId),
-        ascending(Datum::timestamp, Datum::subject / Subject::appVersion),
-        ascending(Datum::datumType),
-        ascending(Datum::subject / Subject::groupName),
-        ascending(Datum::subject / Subject::email),
-        ascending(Datum::subject / Subject::instanceId),
-        ascending(Datum::subject / Subject::source),
-        ascending(Datum::subject / Subject::deviceManufacturer),
-        ascending(Datum::subject / Subject::deviceModel),
-        ascending(Datum::subject / Subject::deviceVersion),
-        ascending(Datum::subject / Subject::deviceOs),
-        ascending(Datum::subject / Subject::appId),
-        ascending(Datum::subject / Subject::appVersion),
+        ascending(Datum::timestamp, Datum::subject / Subject::appVersion)
     )
 
     val heartBeatsIndices = listOf(
-        ascending(HeartBeat::timestamp, HeartBeat::dataStatus / DataStatus::datumType),
+        ascending(HeartBeat::dataStatus / DataStatus::datumType, HeartBeat::subject, HeartBeat::timestamp),
         ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::groupName),
         ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::email),
+        ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::hashedEmail),
         ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::instanceId),
         ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::source),
         ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::deviceManufacturer),
@@ -68,17 +59,6 @@ object Config {
         ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::deviceVersion),
         ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::deviceOs),
         ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::appId),
-        ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::appVersion),
-        ascending(HeartBeat::dataStatus / DataStatus::datumType),
-        ascending(HeartBeat::subject / Subject::groupName),
-        ascending(HeartBeat::subject / Subject::email),
-        ascending(HeartBeat::subject / Subject::instanceId),
-        ascending(HeartBeat::subject / Subject::source),
-        ascending(HeartBeat::subject / Subject::deviceManufacturer),
-        ascending(HeartBeat::subject / Subject::deviceModel),
-        ascending(HeartBeat::subject / Subject::deviceVersion),
-        ascending(HeartBeat::subject / Subject::deviceOs),
-        ascending(HeartBeat::subject / Subject::appId),
-        ascending(HeartBeat::subject / Subject::appVersion),
+        ascending(HeartBeat::timestamp, HeartBeat::subject / Subject::appVersion)
     )
 }

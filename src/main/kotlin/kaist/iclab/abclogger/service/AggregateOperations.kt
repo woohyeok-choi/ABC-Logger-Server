@@ -29,8 +29,7 @@ class AggregateOperations(
             deviceVersion = request.deviceVersionList,
             deviceOses = request.deviceOsList,
             appIds = request.appIdList,
-            appVersions = request.appVersionList,
-            isMd5Hashed = isMd5Hashed
+            appVersions = request.appVersionList
         ).toList().map { group ->
             Group.toProto(group, isMd5Hashed)
         }.let { groups ->
@@ -56,8 +55,7 @@ class AggregateOperations(
             deviceVersion = request.deviceVersionList,
             deviceOses = request.deviceOsList,
             appIds = request.appIdList,
-            appVersions = request.appVersionList,
-            isMd5Hashed = isMd5Hashed
+            appVersions = request.appVersionList
         ).toList().map { group ->
             Group.toProto(group, isMd5Hashed)
         }.let { groups ->

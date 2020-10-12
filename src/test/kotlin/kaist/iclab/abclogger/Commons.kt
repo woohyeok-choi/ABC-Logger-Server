@@ -39,7 +39,7 @@ fun app(): App {
         recipients = emptyList(),
         logPath = "./test/log.log",
         rootTokens = emptyList(),
-        readOnlyTokens = listOf()
+        readOnlyTokens = listOf("read-only-token")
     )
 
     return app

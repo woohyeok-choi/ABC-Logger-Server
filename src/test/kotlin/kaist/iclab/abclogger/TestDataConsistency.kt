@@ -55,12 +55,12 @@ class TestDataConsistency : StringSpec() {
         checkDataConsistencyForCreateDataAsStreamAndReadDataAsStream(DATA_TYPES, TIME_RANGE)
         checkDataConsistencyForQueryingSharedFields(DATA_TYPES, TIME_RANGE)
         checkDataConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)
-/*
+
         DATA_TYPES.forEach { checkHeartBeatConsistencyForEachDataType(it, TIME_RANGE) }
 
         checkHeartBeatConsistencyForMultipleDataTypes(DATA_TYPES, TIME_RANGE)
         checkHeartBeatConsistencyForQueryingSharedFields(DATA_TYPES, TIME_RANGE)
-        checkHeartBeatConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)*/
+        checkHeartBeatConsistencyForQueryingMultipleFields(DATA_TYPES, TIME_RANGE)
     }
 
     private fun checkConsistencyForDataType(dataType: DatumProtos.DatumType) {

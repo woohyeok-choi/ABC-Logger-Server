@@ -1,6 +1,5 @@
 package kaist.iclab.abclogger.db
 
-import com.mongodb.client.model.UnwindOptions
 import kaist.iclab.abclogger.common.Log
 import kaist.iclab.abclogger.schema.*
 import org.litote.kmongo.*
@@ -22,7 +21,6 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
         deviceOses: List<String> = listOf(),
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
-        isMd5Hashed: Boolean
     ): CoroutineAggregatePublisher<Group> = try {
         val filter = dataFilter(
             fromTimestamp,
@@ -37,8 +35,7 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
             deviceVersion,
             deviceOses,
             appIds,
-            appVersions,
-            isMd5Hashed
+            appVersions
         )
 
         database.collection<Datum>().aggregate<Group>(
@@ -76,7 +73,6 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
         deviceOses: List<String> = listOf(),
         appIds: List<String> = listOf(),
         appVersions: List<String> = listOf(),
-        isMd5Hashed: Boolean
     ): CoroutineAggregatePublisher<Group> = try {
         val filter = dataFilter(
             fromTimestamp,
@@ -91,8 +87,7 @@ class DatabaseAggregator(private val database: Database, private val batchSize: 
             deviceVersion,
             deviceOses,
             appIds,
-            appVersions,
-            isMd5Hashed
+            appVersions
         )
 
         database.collection<Datum>().aggregate<Group>(

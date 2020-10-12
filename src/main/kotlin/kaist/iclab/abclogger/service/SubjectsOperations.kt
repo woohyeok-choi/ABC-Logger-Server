@@ -19,7 +19,7 @@ class SubjectsOperations(
     override suspend fun readSubjects(request: ServiceProtos.Query.Read): ServiceProtos.Bulk.Subjects {
         val isMd5Hashed = AuthInterceptor.IS_MD5_HASHED.get() == true
 
-        return readDataInternal(request, false, isMd5Hashed).toList().map { subject ->
+        return readDataInternal(request, false).toList().map { subject ->
             Subject.toProto(subject, isMd5Hashed)
         }.let { subjects ->
             ServiceProtos.Bulk.Subjects.newBuilder().apply {
@@ -31,15 +31,14 @@ class SubjectsOperations(
     override fun readSubjectsAsStream(request: ServiceProtos.Query.Read): Flow<SubjectProtos.Subject> {
         val isMd5Hashed = AuthInterceptor.IS_MD5_HASHED.get() == true
 
-        return readDataInternal(request, true, isMd5Hashed).toFlow().map { subject ->
+        return readDataInternal(request, true).toFlow().map { subject ->
             Subject.toProto(subject, isMd5Hashed)
         }
     }
 
     private fun readDataInternal(
         request: ServiceProtos.Query.Read,
-        isStream: Boolean,
-        isMd5Hashed: Boolean
+        isStream: Boolean
     ) = reader.readSubjects(
         fromTimestamp = request.fromTimestamp,
         toTimestamp = request.toTimestamp,
@@ -59,7 +58,6 @@ class SubjectsOperations(
         } else {
             request.limit.takeIf { it > 0 }?.coerceAtMost(bulkSize) ?: bulkSize
         },
-        isAscending = request.isAscending,
-        isMd5Hashed = isMd5Hashed
+        isAscending = request.isAscending
     )
 }

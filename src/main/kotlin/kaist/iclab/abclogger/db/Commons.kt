@@ -21,7 +21,19 @@ infix fun KProperty<Long?>.between(range: LongRange) = if (range.first != range.
     )
 }
 
-infix fun KProperty<String?>.nullableIn(values: Collection<String?>) = if (values.filterNot { it.isNullOrBlank() }.isEmpty()) null else this `in` values
+infix fun KProperty<String?>.inOrNull(values: Collection<String?>) =
+    if (values.filterNot { it.isNullOrBlank() }.isEmpty()) {
+        null
+    } else {
+        this `in` values
+    }
+
+infix fun KProperty<String?>.inOrExists(values: Collection<String?>) =
+    if (values.filterNot { it.isNullOrBlank() }.isEmpty()) {
+        this exists true
+    } else {
+        this `in` values
+    }
 
 fun dataFilter(
     fromTimestamp: Long,
@@ -36,31 +48,28 @@ fun dataFilter(
     deviceVersion: List<String> = listOf(),
     deviceOses: List<String> = listOf(),
     appIds: List<String> = listOf(),
-    appVersions: List<String> = listOf(),
-    isMd5Encrypted: Boolean
+    appVersions: List<String> = listOf()
 ): Bson {
+    val filterDataType = Datum::datumType inOrExists dataTypes
+    val filterSubject = Datum::subject exists true
     val filterTimeRange = Datum::timestamp between (fromTimestamp..toTimestamp)
-
-    val filterDataType = Datum::datumType nullableIn dataTypes
-
-    val filterSubjects = and(
-        Datum::subject / Subject::groupName nullableIn groupNames,
-        if (isMd5Encrypted) {
-            Datum::subject / Subject::hashedEmail nullableIn emails
-        } else {
-            Datum::subject / Subject::email nullableIn emails
-        },
-        Datum::subject / Subject::instanceId nullableIn instanceIds,
-        Datum::subject / Subject::source nullableIn sources,
-        Datum::subject / Subject::deviceManufacturer nullableIn deviceManufacturers,
-        Datum::subject / Subject::deviceModel nullableIn deviceModels,
-        Datum::subject / Subject::deviceVersion nullableIn deviceVersion,
-        Datum::subject / Subject::deviceOs nullableIn deviceOses,
-        Datum::subject / Subject::appId nullableIn appIds,
-        Datum::subject / Subject::appVersion nullableIn appVersions,
+    val filterEmails = or(
+        Datum::subject / Subject::email inOrNull emails,
+        Datum::subject / Subject::hashedEmail inOrNull emails,
+    )
+    val filterCommons = and(
+        Datum::subject / Subject::groupName inOrNull groupNames,
+        Datum::subject / Subject::instanceId inOrNull instanceIds,
+        Datum::subject / Subject::source inOrNull sources,
+        Datum::subject / Subject::deviceManufacturer inOrNull deviceManufacturers,
+        Datum::subject / Subject::deviceModel inOrNull deviceModels,
+        Datum::subject / Subject::deviceVersion inOrNull deviceVersion,
+        Datum::subject / Subject::deviceOs inOrNull deviceOses,
+        Datum::subject / Subject::appId inOrNull appIds,
+        Datum::subject / Subject::appVersion inOrNull appVersions,
     )
 
-    return and(filterTimeRange, filterDataType, filterSubjects)
+    return and(filterTimeRange, filterDataType, filterSubject, filterEmails, filterCommons)
 }
 
 fun heartBeatFilter(
@@ -76,31 +85,28 @@ fun heartBeatFilter(
     deviceVersion: List<String> = listOf(),
     deviceOses: List<String> = listOf(),
     appIds: List<String> = listOf(),
-    appVersions: List<String> = listOf(),
-    isMd5Encrypted: Boolean
+    appVersions: List<String> = listOf()
 ): Bson {
+    val filterDataType = HeartBeat::dataStatus / DataStatus::datumType inOrExists dataTypes
+    val filterSubject = HeartBeat::subject exists true
     val filterTimeRange = HeartBeat::timestamp between (fromTimestamp..toTimestamp)
-
-    val filterDataType = HeartBeat::dataStatus / DataStatus::datumType nullableIn  dataTypes
-
-    val filterSubjects = and(
-        HeartBeat::subject / Subject::groupName nullableIn groupNames,
-        if (isMd5Encrypted) {
-            HeartBeat::subject / Subject::hashedEmail nullableIn emails
-        } else {
-            HeartBeat::subject / Subject::email nullableIn emails
-        },
-        HeartBeat::subject / Subject::instanceId nullableIn instanceIds,
-        HeartBeat::subject / Subject::source nullableIn sources,
-        HeartBeat::subject / Subject::deviceManufacturer nullableIn deviceManufacturers,
-        HeartBeat::subject / Subject::deviceModel nullableIn deviceModels,
-        HeartBeat::subject / Subject::deviceVersion nullableIn deviceVersion,
-        HeartBeat::subject / Subject::deviceOs nullableIn deviceOses,
-        HeartBeat::subject / Subject::appId nullableIn appIds,
-        HeartBeat::subject / Subject::appVersion nullableIn appVersions
+    val filterEmails = or(
+        HeartBeat::subject / Subject::email inOrNull emails,
+        HeartBeat::subject / Subject::hashedEmail inOrNull emails,
+    )
+    val filterCommons = and(
+        HeartBeat::subject / Subject::groupName inOrNull groupNames,
+        HeartBeat::subject / Subject::instanceId inOrNull instanceIds,
+        HeartBeat::subject / Subject::source inOrNull sources,
+        HeartBeat::subject / Subject::deviceManufacturer inOrNull deviceManufacturers,
+        HeartBeat::subject / Subject::deviceModel inOrNull deviceModels,
+        HeartBeat::subject / Subject::deviceVersion inOrNull deviceVersion,
+        HeartBeat::subject / Subject::deviceOs inOrNull deviceOses,
+        HeartBeat::subject / Subject::appId inOrNull appIds,
+        HeartBeat::subject / Subject::appVersion inOrNull appVersions
     )
 
-    return and(filterTimeRange, filterDataType, filterSubjects)
+    return and(filterDataType, filterSubject, filterTimeRange, filterEmails, filterCommons)
 }
 
 infix fun <T> KProperty<T>.unwind(unwindOptions: UnwindOptions?): Bson =

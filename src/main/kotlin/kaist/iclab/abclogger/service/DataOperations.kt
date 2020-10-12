@@ -38,7 +38,7 @@ class DataOperations(
     override suspend fun readData(request: ServiceProtos.Query.Read): ServiceProtos.Bulk.Data {
         val isMd5Hashed = AuthInterceptor.IS_MD5_HASHED.get() == true
 
-        return readDataInternal(request, false, isMd5Hashed).toList().map { datum ->
+        return readDataInternal(request, false).toList().map { datum ->
             Datum.toProto(datum, isMd5Hashed)
         }.let { data ->
             ServiceProtos.Bulk.Data.newBuilder().apply {
@@ -50,12 +50,12 @@ class DataOperations(
     override fun readDataAsStream(request: ServiceProtos.Query.Read): Flow<DatumProtos.Datum> {
         val isMd5Hashed = AuthInterceptor.IS_MD5_HASHED.get() == true
 
-        return readDataInternal(request, true, isMd5Hashed).toFlow().map { datum ->
+        return readDataInternal(request, true).toFlow().map { datum ->
             Datum.toProto(datum, isMd5Hashed)
         }
     }
 
-    private fun readDataInternal(request: ServiceProtos.Query.Read, isStream: Boolean, isMd5Hashed: Boolean) = reader.readData(
+    private fun readDataInternal(request: ServiceProtos.Query.Read, isStream: Boolean) = reader.readData(
         fromTimestamp = request.fromTimestamp,
         toTimestamp = request.toTimestamp,
         dataTypes = request.datumTypeList.map { it.name },
@@ -74,7 +74,6 @@ class DataOperations(
         } else {
             request.limit.takeIf { it > 0 }?.coerceAtMost(bulkSize) ?: bulkSize
         },
-        isAscending = request.isAscending,
-        isMd5Hashed = isMd5Hashed
+        isAscending = request.isAscending
     )
 }
