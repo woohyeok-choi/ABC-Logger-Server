@@ -1,0 +1,28 @@
+net:
+  bindIp: 0.0.0.0
+  port: 3307
+  ssl:
+    mode: "allowSSL"
+    PEMKeyFile: "/home/bi/bi-cert-key.pem"
+
+mongodb:
+  net:
+    uri: "mongodb://abc.kaist.ac.kr:50031"
+    auth:
+      username: "abcreader"
+      password: "abcreader"
+
+security:
+  enabled: true
+
+systemLog:
+  path: /home/bi/logs/log.log
+  quiet: false
+  verbosity: 1
+  logRotate: "rename"
+
+processManagement:
+  service:
+    name: "mongosql"
+    displayName: "MongoSQL Service"
+    description: "MongoSQL accesses MongoDB data with SQL"

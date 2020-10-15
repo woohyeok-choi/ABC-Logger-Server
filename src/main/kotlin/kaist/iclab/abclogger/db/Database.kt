@@ -51,7 +51,6 @@ class Database(
             "\treadUsers=$readUsers"
         )
 
-
         val rootConnStr = getMongoUrl(rootUserName, rootPassword, dbServerName)
         Log.info("Database.bind() - Try to connect to: $rootConnStr")
 
@@ -79,7 +78,7 @@ class Database(
             }
         }
 
-        val writerConnStr = getMongoUrl(writerUserName, writerUserPassword, dbServerName, dbName)
+        val writerConnStr = getMongoUrl(writerUserName, writerUserPassword, dbServerName)
         Log.info("Database.bind() - Try to connect $writerConnStr")
 
         val setting = MongoClientSettings.builder().apply {
@@ -143,7 +142,7 @@ class Database(
         password: String,
         isReadOnly: Boolean
     ) {
-        val database = client.getDatabase(dbName)
+        val database = client.getDatabase("admin")
 
         try {
             database.runCommand<Document>(
@@ -182,13 +181,6 @@ class Database(
 
     private fun encode(str: String) = URLEncoder.encode(str, "utf-8")
 
-    private fun getMongoUrl(userName: String, password: String, dbServerName: String, dbName: String? = null): String {
-        val baseUrl = "mongodb://${encode(userName)}:${encode(password)}@${encode(dbServerName)}:27017"
-
-        return if (dbName.isNullOrBlank()) {
-            baseUrl
-        } else {
-            "$baseUrl/${encode(dbName)}"
-        }
-    }
+    private fun getMongoUrl(userName: String, password: String, dbServerName: String): String =
+        "mongodb://${encode(userName)}:${encode(password)}@${encode(dbServerName)}:27017"
 }
